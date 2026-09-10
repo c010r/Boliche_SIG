@@ -1,0 +1,65 @@
+{% extends "web/base.html" %}
+{% block contenido %}
+<h1>Barra · {{ sesion.terminal.nombre }}</h1>
+<p class="tenue chico">Caja abierta por {{ sesion.usuario.nombre }} · turno {{ sesion.turno.nombre }}</p>
+
+<div class="tabs">
+  <a href="{% url 'web:barra' %}" class="{% if not categoria_actual %}activo{% endif %}">Todos</a>
+  {% for c in categorias %}
+    <a href="{% url 'web:barra' %}?categoria={{ c.id }}" class="{% if categoria_actual == c.id|stringformat:'s' %}activo{% endif %}">{{ c.nombre }}</a>
+  {% endfor %}
+</div>
+
+<div class="grilla">
+  {% for p in productos %}
+    <button class="producto"
+            data-producto="{{ p.id }}"
+            data-nombre="{{ p.nombre }}"
+            data-precio="{{ p.precio }}">
+      <span class="nombre">{{ p.nombre }}</span>
+      <span class="precio">$ {{ p.precio }}</span>
+    </button>
+  {% empty %}
+    <p class="tenue">No hay productos activos en esta categoria.</p>
+  {% endfor %}
+</div>
+
+<div class="barra-pago" id="pago" hidden>
+  <div class="tenue chico" style="margin-bottom:.5rem;">Cobrando: <strong id="pd"></strong></div>
+  <div class="grilla">
+    <button class="accion" onclick="cobrar('efectivo')">Efectivo</button>
+    <button class="accion secundaria" onclick="cobrar('qr')">QR</button>
+    <button class="accion secundaria" onclick="cobrar('tarjeta')">Tarjeta</button>
+    <button class="peligro" onclick="cancelar()">Cancelar</button>
+  </div>
+</div>
+
+<form method="post" id="f-cobro" hidden>
+  {% csrf_token %}
+  <input type="hidden" name="producto" id="f-producto">
+  <input type="hidden" name="medio" id="f-medio">
+</form>
+
+<script>
+  var seleccionado = null;
+  var botones = document.querySelectorAll('[data-producto]');
+  for (var i = 0; i < botones.length; i++) {
+    botones[i].addEventListener('click', function (ev) {
+      seleccionado = ev.currentTarget.dataset.producto;
+      document.getElementById('pd').textContent =
+        ev.currentTarget.dataset.nombre + '  ·  $ ' + ev.currentTarget.dataset.precio;
+      document.getElementById('pago').hidden = false;
+    });
+  }
+  function cobrar(medio) {
+    if (!seleccionado) { return; }
+    document.getElementById('f-producto').value = seleccionado;
+    document.getElementById('f-medio').value = medio;
+    document.getElementById('f-cobro').submit();
+  }
+  function cancelar() {
+    seleccionado = null;
+    document.getElementById('pago').hidden = true;
+  }
+</script>
+{% endblock %}

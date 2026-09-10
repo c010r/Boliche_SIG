@@ -1,0 +1,116 @@
+{% load static %}<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>{% block titulo %}Boliche SIG{% endblock %}</title>
+<style>
+  /* Tema oscuro a proposito: una pantalla blanca al 100% en un boliche a
+     oscuras encandila al que atiende y a los clientes. */
+  :root {
+    --fondo: #0d0f12;
+    --panel: #161a20;
+    --panel2: #1e242c;
+    --borde: #2c343e;
+    --texto: #e9edf2;
+    --tenue: #9aa7b4;
+    --acento: #35c07a;
+    --acento2: #2b9fd8;
+    --alerta: #d9564a;
+    --aviso: #d7a02c;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; background: var(--fondo); color: var(--texto);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 17px;
+  }
+  header {
+    display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+    padding: .6rem 1rem; background: var(--panel); border-bottom: 1px solid var(--borde);
+  }
+  header .marca { font-weight: 700; letter-spacing: .02em; }
+  header .boliche { color: var(--tenue); font-size: .9rem; }
+  header nav { margin-left: auto; display: flex; gap: .5rem; flex-wrap: wrap; }
+  header nav a {
+    color: var(--texto); text-decoration: none; padding: .6rem .9rem;
+    border-radius: .5rem; background: var(--panel2); border: 1px solid var(--borde);
+    min-height: 44px; display: inline-flex; align-items: center;
+  }
+  header nav a.activo { background: var(--acento); color: #06210f; border-color: var(--acento); font-weight: 600; }
+  main { padding: 1rem; max-width: 1200px; margin: 0 auto; }
+  h1 { font-size: 1.4rem; margin: .2rem 0 1rem; }
+  h2 { font-size: 1.1rem; margin: 1.5rem 0 .6rem; color: var(--tenue); text-transform: uppercase; letter-spacing: .06em; }
+  .mensajes { list-style: none; padding: 0; margin: 0 0 1rem; }
+  .mensajes li { padding: .8rem 1rem; border-radius: .5rem; margin-bottom: .5rem; border: 1px solid var(--borde); background: var(--panel2); }
+  .mensajes li.success { border-color: var(--acento); }
+  .mensajes li.warning { border-color: var(--aviso); }
+  .mensajes li.error { border-color: var(--alerta); }
+  .grilla { display: grid; gap: .7rem; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+  .tabs { display: flex; gap: .5rem; overflow-x: auto; padding-bottom: .5rem; margin-bottom: .8rem; }
+  .tabs a {
+    white-space: nowrap; text-decoration: none; color: var(--texto);
+    background: var(--panel2); border: 1px solid var(--borde);
+    padding: .7rem 1rem; border-radius: 2rem; min-height: 46px; display: inline-flex; align-items: center;
+  }
+  .tabs a.activo { background: var(--acento2); border-color: var(--acento2); color: #04222f; font-weight: 600; }
+  button, .boton {
+    font: inherit; color: var(--texto); background: var(--panel2);
+    border: 1px solid var(--borde); border-radius: .6rem; padding: .9rem 1rem;
+    min-height: 52px; cursor: pointer; text-align: left; width: 100%;
+  }
+  button:active { transform: scale(.98); }
+  button.producto { display: flex; flex-direction: column; justify-content: space-between; min-height: 92px; }
+  button.producto .nombre { font-weight: 600; line-height: 1.2; }
+  button.producto .precio { color: var(--tenue); font-size: .95rem; margin-top: .4rem; }
+  .accion { background: var(--acento); border-color: var(--acento); color: #06210f; font-weight: 700; text-align: center; }
+  .accion.secundaria { background: var(--acento2); border-color: var(--acento2); color: #04222f; }
+  .peligro { background: var(--alerta); border-color: var(--alerta); color: #2a0603; font-weight: 600; text-align: center; }
+  .panel { background: var(--panel); border: 1px solid var(--borde); border-radius: .7rem; padding: 1rem; margin-bottom: 1rem; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: .6rem .5rem; border-bottom: 1px solid var(--borde); }
+  th { color: var(--tenue); font-weight: 600; font-size: .85rem; text-transform: uppercase; letter-spacing: .05em; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .neg { color: var(--alerta); font-weight: 600; }
+  .pos { color: var(--acento); font-weight: 600; }
+  label { display: block; margin: .8rem 0 .3rem; color: var(--tenue); font-size: .9rem; }
+  input, select {
+    font: inherit; width: 100%; padding: .85rem; border-radius: .5rem;
+    background: var(--panel2); color: var(--texto); border: 1px solid var(--borde); min-height: 50px;
+  }
+  .fila { display: flex; gap: .7rem; flex-wrap: wrap; align-items: flex-end; }
+  .fila > * { flex: 1 1 180px; }
+  .barra-pago { position: sticky; bottom: 0; background: var(--panel); border-top: 1px solid var(--borde); padding: .8rem 1rem; margin: 1rem -1rem -1rem; }
+  .barra-pago .grilla { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+  .aviso { color: var(--aviso); }
+  .tenue { color: var(--tenue); }
+  .chico { font-size: .9rem; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <div class="marca">Boliche SIG</div>
+    {% if request.tenant %}<div class="boliche">{{ request.tenant.nombre }}</div>{% endif %}
+  </div>
+  {% if request.user.is_authenticated %}
+  <nav>
+    {% with actual=request.resolver_match.url_name %}
+    <a href="{% url 'web:barra' %}" class="{% if actual == 'barra' %}activo{% endif %}">Barra</a>
+    <a href="{% url 'web:caja' %}" class="{% if actual == 'caja' %}activo{% endif %}">Caja</a>
+    <a href="{% url 'web:panel' %}" class="{% if actual == 'panel' %}activo{% endif %}">Panel</a>
+    <a href="{% url 'web:salir' %}">{{ request.user.nombre }}</a>
+    {% endwith %}
+  </nav>
+  {% endif %}
+</header>
+<main>
+  {% if messages %}
+  <ul class="mensajes">
+    {% for m in messages %}<li class="{{ m.tags }}">{{ m }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+  {% block contenido %}{% endblock %}
+</main>
+</body>
+</html>

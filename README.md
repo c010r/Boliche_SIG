@@ -24,10 +24,12 @@ En construcción, siguiendo la secuencia de `ANALISIS.md` §15 bis.
       reporte de varianza ordenado por impacto en plata
 - [x] **Hito 7** — alta de un boliche en un comando, con plantilla del vertical y
       una noche de demostración completa
-- [ ] **Hito 8** — interfaz web: ingreso por PIN, barra en 3 toques, cierre y panel del dueño
+- [x] **Hito 8** — interfaz web: ingreso por número y PIN, barra con botonera táctil,
+      cierre de caja con arqueo y panel del dueño con la varianza
 - [ ] **Hito 9** — despliegue con Docker y manual de instalación
 
-**140 tests en verde.** La puerta de la Etapa 0 (aislamiento entre dos tenants) está
+**157 tests en verde**, más una verificación de punta a punta por HTTP real
+(`scripts/verificar_interfaz.py`). La puerta de la Etapa 0 (aislamiento entre dos tenants) está
 cumplida y se verifica en cada corrida.
 
 ## Stack
@@ -83,6 +85,24 @@ python manage.py provisionar_boliche --nombre "Boliche Nuevo" --slug nuevo --rut
 Deja el local operativo: puntos de stock (Deposito, Barra 1, Barra 2, Puerta), una
 terminal por punto, los siete roles con sus permisos, el usuario dueño con PIN y la
 plantilla del vertical (unidades, insumos con presentaciones, tragos con receta y combos).
+
+### Usar el sistema
+
+```bash
+python manage.py runserver
+```
+
+Abrir <http://127.0.0.1:8000/> e ingresar con el número de operador y el PIN. La
+interfaz es oscura a propósito: una pantalla blanca al 100 % en un boliche a oscuras
+encandila a quien atiende.
+
+Para verificar el flujo completo contra un servidor real (ingreso, apertura de caja,
+venta, panel y salida):
+
+```bash
+python manage.py runserver 127.0.0.1:8010 &
+python scripts/verificar_interfaz.py
+```
 
 ### Ver el sistema funcionando en un minuto
 

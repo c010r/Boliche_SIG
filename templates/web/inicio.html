@@ -1,0 +1,9 @@
+{% extends "web/base.html" %}
+{% block contenido %}
+<h1>Hola, {{ request.user.nombre }}</h1>
+<div class="panel">
+  <p>No tenes una caja abierta.</p>
+  <p class="tenue chico">Hay {{ cajas_abiertas }} caja{{ cajas_abiertas|pluralize }} abierta{{ cajas_abiertas|pluralize }} en el boliche.</p>
+  <a class="boton accion" style="display:block; text-decoration:none;" href="{% url 'web:caja' %}">Abrir caja</a>
+</div>
+{% endblock %}

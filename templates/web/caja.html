@@ -1,0 +1,84 @@
+{% extends "web/base.html" %}
+{% block contenido %}
+<h1>Caja</h1>
+
+{% if sesion %}
+  <div class="panel">
+    <p><strong>{{ sesion.terminal.nombre }}</strong> · abierta {{ sesion.abierta_en|date:"H:i" }} · fondo inicial $ {{ sesion.fondo_inicial }}</p>
+  </div>
+
+  <h2>Resumen del turno</h2>
+  <div class="panel">
+    <table>
+      <tr><th>Ventas cobradas</th><td class="num">{{ resumen.cantidad_ventas }}</td></tr>
+      <tr><th>Total vendido</th><td class="num">$ {{ resumen.total_vendido }}</td></tr>
+      <tr><th>Anuladas</th><td class="num">{{ resumen.cantidad_anuladas }} · $ {{ resumen.total_anulado }}</td></tr>
+    </table>
+  </div>
+
+  <h2>Cierre y arqueo</h2>
+  <div class="panel">
+    <p class="tenue chico">El esperado sale del sistema. Vos declaras lo que contaste. Una diferencia tiene que autorizarla otra persona.</p>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="accion" value="cerrar">
+      <table>
+        <tr><th>Medio</th><th class="num">Esperado</th><th class="num">Contado</th></tr>
+        {% for medio, monto in esperado.items %}
+        <tr>
+          <td>{{ medio }}</td>
+          <td class="num">{{ monto }}</td>
+          <td class="num" style="max-width: 160px;">
+            <input name="declarado_{{ medio }}" value="{{ monto }}" inputmode="decimal">
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+      <label for="autorizado_por">Numero del autorizante (solo si hay diferencia)</label>
+      <input id="autorizado_por" name="autorizado_por" inputmode="numeric" autocomplete="off" placeholder="0002">
+      <label for="observaciones">Observaciones</label>
+      <input id="observaciones" name="observaciones" autocomplete="off">
+      <div style="margin-top: 1.2rem;">
+        <button class="accion" type="submit">Cerrar caja</button>
+      </div>
+    </form>
+  </div>
+
+  <h2>Ultimas ventas</h2>
+  <div class="panel">
+    <table>
+      <tr><th>#</th><th>Hora</th><th>Total</th><th>Estado</th></tr>
+      {% for v in ultimas %}
+      <tr>
+        <td>{{ v.numero }}</td>
+        <td>{{ v.creado_en|date:"H:i" }}</td>
+        <td class="num">$ {{ v.total }}</td>
+        <td>{{ v.get_estado_display }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" class="tenue">Sin ventas todavia.</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+
+{% else %}
+  <div class="panel">
+    <p>No tenes una caja abierta.</p>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="accion" value="abrir">
+      <label for="terminal">Terminal</label>
+      <select id="terminal" name="terminal" required>
+        {% for t in terminales %}<option value="{{ t.id }}">{{ t.nombre }} ({{ t.get_tipo_display }})</option>{% endfor %}
+      </select>
+      <label for="fondo_inicial">Fondo inicial</label>
+      <input id="fondo_inicial" name="fondo_inicial" value="0" inputmode="decimal">
+      <label for="turno">Nombre del turno</label>
+      <input id="turno" name="turno" value="{{ ahora|date:'l d/m' }}" autocomplete="off">
+      <div style="margin-top: 1.2rem;">
+        <button class="accion" type="submit">Abrir caja</button>
+      </div>
+    </form>
+  </div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,19 @@
+{% extends "web/base.html" %}
+{% block titulo %}Ingresar{% endblock %}
+{% block contenido %}
+<div class="panel" style="max-width: 460px; margin: 3rem auto;">
+  <h1>Ingresar</h1>
+  <p class="tenue chico">Numero de operador y PIN. Nadie tipea una contrasena larga en una barra con gente esperando.</p>
+  {% if error %}<ul class="mensajes"><li class="error">{{ error }}</li></ul>{% endif %}
+  <form method="post">
+    {% csrf_token %}
+    <label for="numero">Numero de operador</label>
+    <input id="numero" name="numero" inputmode="numeric" autocomplete="off" autofocus required>
+    <label for="pin">PIN</label>
+    <input id="pin" name="pin" type="password" inputmode="numeric" autocomplete="off" required>
+    <div style="margin-top: 1.2rem;">
+      <button class="accion" type="submit">Entrar</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

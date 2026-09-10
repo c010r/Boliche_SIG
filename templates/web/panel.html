@@ -1,0 +1,81 @@
+{% extends "web/base.html" %}
+{% block contenido %}
+<h1>Panel del dueno</h1>
+<p class="tenue chico">{{ ahora|date:"d/m/Y H:i" }}</p>
+
+<h2>Varianza del evento</h2>
+<div class="panel">
+  {% if reporte.filas %}
+  <table>
+    <tr><th>Insumo</th><th>Punto</th><th class="num">Teorico</th><th class="num">Contado</th><th class="num">Diferencia</th><th class="num">Valor</th></tr>
+    {% for f in reporte.filas %}
+    <tr>
+      <td>{{ f.insumo }}</td>
+      <td class="tenue">{{ f.deposito }}</td>
+      <td class="num">{{ f.teorico|floatformat:1 }}</td>
+      <td class="num">{{ f.contado|floatformat:1 }}</td>
+      <td class="num {% if f.diferencia < 0 %}neg{% elif f.diferencia > 0 %}pos{% endif %}">{{ f.diferencia|floatformat:1 }}</td>
+      <td class="num {% if f.valorizado < 0 %}neg{% elif f.valorizado > 0 %}pos{% endif %}">$ {{ f.valorizado|floatformat:1 }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  <p style="margin-top:1rem;">Varianza valorizada: <strong class="{% if reporte.varianza_valorizada < 0 %}neg{% else %}pos{% endif %}">$ {{ reporte.varianza_valorizada|floatformat:1 }}</strong></p>
+  {% else %}
+  <p class="tenue">Todavia no hay conteos cerrados. Sin conteo no hay varianza: el sistema no inventa un cero.</p>
+  {% endif %}
+
+  {% if reporte.depositos_sin_conteo %}
+  <p class="aviso chico">
+    Sin conteo:
+    {% for d in reporte.depositos_sin_conteo %}{{ d.deposito }}{% if not forloop.last %}, {% endif %}{% endfor %}.
+    No medido no es cero.
+  </p>
+  {% endif %}
+
+  {% if reporte.duracion_promedio_seg %}
+  <p class="tenue chico">Duracion promedio del conteo: {{ reporte.duracion_promedio_seg }} segundos.</p>
+  {% endif %}
+</div>
+
+<h2>Cobrado por medio de pago</h2>
+<div class="panel">
+  <table>
+    <tr><th>Medio</th><th class="num">Total</th></tr>
+    {% for fila in por_medio %}
+    <tr><td>{{ fila.medio }}</td><td class="num">$ {{ fila.total }}</td></tr>
+    {% empty %}
+    <tr><td colspan="2" class="tenue">Sin cobros registrados.</td></tr>
+    {% endfor %}
+  </table>
+</div>
+
+<h2>Anulaciones recientes</h2>
+<div class="panel">
+  <p class="tenue chico">Una anulacion no borra nada: queda el asiento contrario y quien lo hizo.</p>
+  <table>
+    <tr><th>#</th><th>Quien</th><th>Motivo</th><th class="num">Total</th></tr>
+    {% for v in anuladas %}
+    <tr>
+      <td>{{ v.numero }}</td>
+      <td>{{ v.anulada_por.nombre|default:"-" }}</td>
+      <td>{{ v.motivo_anulacion }}</td>
+      <td class="num">$ {{ v.total }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="4" class="tenue">Sin anulaciones.</td></tr>
+    {% endfor %}
+  </table>
+</div>
+
+<h2>Ultimos turnos cerrados</h2>
+<div class="panel">
+  <table>
+    <tr><th>Turno</th><th>Fecha</th><th>Cerrado</th></tr>
+    {% for t in ultimos_turnos %}
+    <tr><td>{{ t.nombre }}</td><td>{{ t.fecha }}</td><td>{{ t.cerrado_en|date:"d/m H:i" }}</td></tr>
+    {% empty %}
+    <tr><td colspan="3" class="tenue">Sin turnos cerrados.</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

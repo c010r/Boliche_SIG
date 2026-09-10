@@ -106,10 +106,13 @@ def registrar_venta(
     idempotency_key: str = "",
     creada_en_cliente=None,
     descuento: Decimal = Decimal("0"),
+    concepto: str = "",
+    total_fijo=None,
 ) -> Venta:
     """Registra una venta y descarga el stock por receta.
 
     items: [{"producto": Producto | id, "cantidad": n, "descuento": monto}]
+    concepto: para ventas sin productos (entradas). Exige total_fijo.
     """
     tenant = _tenant_actual()
 
@@ -122,8 +125,10 @@ def registrar_venta(
         if existente is not None:
             return existente
 
-    if not items:
-        raise ValidationError("Una venta sin items no existe.")
+    if not items and not concepto:
+        raise ValidationError("Una venta sin items exige un concepto.")
+    if not items and total_fijo is None:
+        raise ValidationError("Una venta por concepto exige el total.")
 
     usuario = usuario or sesion.usuario
     terminal = sesion.terminal
@@ -143,6 +148,7 @@ def registrar_venta(
         descuento=_a_decimal(descuento),
         creada_en_cliente=creada_en_cliente,
         idempotency_key=idempotency_key,
+        concepto=concepto,
     )
 
     subtotal = Decimal("0")
@@ -168,6 +174,8 @@ def registrar_venta(
             )
         )
 
+    if not items:
+        subtotal = _a_decimal(total_fijo)
     venta.subtotal = subtotal
     venta.total = subtotal - venta.descuento
     venta.full_clean(exclude=["tenant"])

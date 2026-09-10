@@ -135,6 +135,35 @@ Requiere el permiso `ventas.anular` (el rol **cantinero no lo tiene**). Exige
 motivo y **no borra nada**: queda la venta anulada, quién la anuló y el
 movimiento contrario en el stock.
 
+### Vender entradas en la puerta
+
+1. **Eventos → abrir el evento → elegir tipo y cantidad → Emitir y cobrar.** Si hay
+   una caja abierta, la venta entra al arqueo; si no, el sistema avisa que no.
+2. Con **una** entrada emitida se abre la pantalla del QR, listo para mostrar.
+3. El cupo por tipo y el **aforo del evento** bloquean la venta: no se sobrevende.
+   El aforo es la capacidad del local que fiscaliza la Intendencia.
+
+### Validar en la puerta
+
+**Puerta → elegir el evento.**
+
+- **Encender cámara** lee el QR solo (Android con Chrome). En iPhone el navegador no
+  lee QR automáticamente: usar el código a mano.
+- La cámara **necesita HTTPS**. Si no arranca, el campo de código a mano siempre
+  funciona.
+- El resultado se ve en grande, en verde o rojo, **y suena**. En la puerta el sonido
+  sirve porque el operador mira de reojo mientras hay cola.
+- **Una entrada se usa una sola vez.** El segundo escaneo la rechaza, aunque venga de
+  otra puerta al mismo tiempo.
+- Si el aforo está completo, deja entrar igual —la entrada es válida— y **avisa en
+  pantalla**.
+
+### Ingreso manual
+
+Invitado, lista, o alguien que pasó sin escanear. **Siempre con motivo.** Es el
+equivalente en la puerta del cobro no registrado: si se puede hacer sin dejar rastro,
+se va a hacer.
+
 ### Cerrar caja
 
 1. **Caja → Cierre y arqueo.**
@@ -181,6 +210,8 @@ de la caja.
 | **No me acuerdo el PIN** | Tres intentos fallidos y el operador queda bloqueado. Lo desbloquea el encargado. |
 | **Cobré mal y ya cerré la venta** | Se anula con motivo. Queda registrado; no se borra. |
 | **La caja no me cierra** | Escribí lo que contaste. Si hay diferencia, la autoriza el encargado con su número. **No ajustes los números para que den.** |
+| **El QR no lee** | Usá el campo de código a mano: el token está en la pantalla del comprador. Si tampoco, ingreso manual con motivo. |
+| **La entrada ya figura usada y el cliente protesta** | Está cumpliendo su función: alguien la usó antes. No hay forma de "reusarla"; si hay que dejarlo pasar, es ingreso manual con motivo. |
 | **Se cayó el servidor** | Avisar al proveedor. El local necesita su talonario de **comprobantes de contingencia** en papel (obligación del local, ver §8). |
 
 ---
@@ -220,7 +251,7 @@ mezclan en la misma sesión.**
 ## 10. Estado del desarrollo
 
 Ver el detalle en [`README.md`](README.md). Resumen: el núcleo de **Fase 1** está
-completo y verificado con **157 tests** más una verificación de punta a punta por HTTP.
+completo y verificado con **207 tests** más dos verificaciones de punta a punta por HTTP.
 
-**Falta:** módulo de entradas y control de acceso con QR, listas y promotores
-(Fase 2), y modo offline en la barra (Fase 3).
+**Falta:** venta online de entradas (la de puerta ya está), listas y promotores con
+comisión, y modo offline de la barra.

@@ -18,6 +18,7 @@ from django.contrib import messages
 from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout as auth_logout
 from django.db.models import Count, Sum
+from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 
@@ -351,4 +352,204 @@ def panel(request):
             "anuladas": anuladas,
             "ahora": timezone.now(),
         },
+    )
+
+
+# --- entradas y control de acceso -----------------------------------------
+
+
+def eventos(request):
+    if not request.user.is_authenticated:
+        return redirect("web:ingresar")
+    if request.tenant is None:
+        return redirect("web:inicio")
+
+    from apps.ticketing.models import Evento
+
+    lista = Evento.objects.select_related("local").order_by("fecha", "nombre")
+    return render(request, "web/eventos.html", {"eventos": lista})
+
+
+def evento(request, evento_id):
+    if not request.user.is_authenticated:
+        return redirect("web:ingresar")
+    if request.tenant is None:
+        return redirect("web:inicio")
+
+    from apps.ticketing.models import Evento
+    from apps.ticketing.services import resumen_de_evento
+
+    objeto = Evento.objects.filter(pk=evento_id).first()
+    if objeto is None:
+        messages.error(request, "Ese evento no existe.")
+        return redirect("web:eventos")
+
+    return render(
+        request,
+        "web/evento.html",
+        {"resumen": resumen_de_evento(objeto), "evento": objeto},
+    )
+
+
+def vender_entradas(request, evento_id):
+    if not request.user.is_authenticated:
+        return redirect("web:ingresar")
+    if not request.user.tiene_permiso("entradas.vender"):
+        messages.error(request, "No tenes permiso para vender entradas.")
+        return redirect("web:inicio")
+
+    from apps.ticketing.models import Evento, TipoEntrada
+    from apps.ticketing.services import vender_entrada
+
+    objeto = Evento.objects.filter(pk=evento_id).first()
+    tipo = TipoEntrada.objects.filter(pk=request.POST.get("tipo"), evento=objeto).first()
+    if objeto is None or tipo is None:
+        messages.error(request, "Elegi un tipo de entrada.")
+        return redirect("web:eventos")
+
+    try:
+        cantidad = int(request.POST.get("cantidad") or 1)
+    except ValueError:
+        cantidad = 1
+
+    sesion = _sesion_abierta(request)
+
+    try:
+        entradas = vender_entrada(
+            tipo=tipo,
+            cantidad=cantidad,
+            usuario=request.user,
+            sesion_caja=sesion,
+            terminal=sesion.terminal if sesion else None,
+            comprador_nombre=(request.POST.get("comprador") or "").strip(),
+        )
+    except Exception as error:  # noqa: BLE001 - se le muestra al operador
+        messages.error(request, str(error))
+        return redirect("web:evento", evento_id=objeto.id)
+
+    if sesion is None:
+        messages.warning(
+            request,
+            f"{len(entradas)} entrada(s) emitidas SIN caja abierta: no quedaron "
+            f"en el arqueo.",
+        )
+    else:
+        messages.success(request, f"{len(entradas)} entrada(s) vendidas y cobradas.")
+
+    if len(entradas) == 1:
+        return redirect("web:entrada_qr", entrada_id=entradas[0].id)
+    return redirect("web:evento", evento_id=objeto.id)
+
+
+def entrada_qr(request, entrada_id):
+    if not request.user.is_authenticated:
+        return redirect("web:ingresar")
+    if request.tenant is None:
+        return redirect("web:inicio")
+
+    from apps.ticketing.models import Entrada
+    from apps.ticketing.services import contenido_qr, qr_svg
+
+    entrada = Entrada.objects.filter(pk=entrada_id).select_related("evento", "tipo").first()
+    if entrada is None:
+        messages.error(request, "Esa entrada no existe.")
+        return redirect("web:eventos")
+
+    return render(
+        request,
+        "web/entrada_qr.html",
+        {
+            "entrada": entrada,
+            "qr": qr_svg(entrada),
+            "contenido": contenido_qr(entrada),
+        },
+    )
+
+
+def puerta(request, evento_id=None):
+    """Pantalla de la puerta.
+
+    El sonido si sirve aca: el operador mira de reojo mientras hay cola, y el
+    ruido en el acceso es menor que en la barra (ANALISIS.md seccion 7).
+    """
+    if not request.user.is_authenticated:
+        return redirect("web:ingresar")
+    if request.tenant is None:
+        return redirect("web:inicio")
+
+    from apps.ticketing.models import Evento
+
+    lista = Evento.objects.exclude(estado=Evento.Estado.CANCELADO).order_by("fecha")
+    elegido = None
+    if evento_id:
+        elegido = lista.filter(pk=evento_id).first()
+    if elegido is None:
+        elegido = lista.filter(estado=Evento.Estado.PUBLICADO).first() or lista.first()
+
+    return render(
+        request,
+        "web/puerta.html",
+        {"eventos": lista, "evento": elegido},
+    )
+
+
+def validar(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "mensaje": "No autenticado."}, status=403)
+    if not request.user.tiene_permiso("acceso.validar"):
+        return JsonResponse(
+            {"ok": False, "mensaje": "No tenes permiso para validar accesos."}, status=403
+        )
+
+    from apps.ticketing.models import Evento
+    from apps.ticketing.services import registrar_ingreso_manual, validar_entrada
+
+    objeto = Evento.objects.filter(pk=request.POST.get("evento")).first()
+    if objeto is None:
+        return JsonResponse({"ok": False, "mensaje": "Elegi un evento."}, status=400)
+
+    terminal = Terminal.objects.filter(nombre="Puerta").first()
+    manual = (request.POST.get("manual") or "").strip()
+
+    if manual:
+        motivo = (request.POST.get("motivo") or "").strip()
+        if not motivo:
+            return JsonResponse(
+                {"ok": False, "mensaje": "Un ingreso manual exige motivo."}, status=400
+            )
+        try:
+            cantidad = int(request.POST.get("cantidad") or 1)
+        except ValueError:
+            cantidad = 1
+        dentro = registrar_ingreso_manual(
+            evento=objeto, cantidad=cantidad, motivo=motivo,
+            terminal=terminal, usuario=request.user,
+        )
+        return JsonResponse(
+            {
+                "ok": True,
+                "mensaje": f"Ingreso manual registrado. Adentro: {dentro}.",
+                "aforo_en_vivo": dentro,
+                "aforo": objeto.aforo,
+            }
+        )
+
+    resultado = validar_entrada(
+        evento=objeto,
+        texto_qr=request.POST.get("texto") or "",
+        terminal=terminal,
+        usuario=request.user,
+    )
+    entrada = resultado.get("entrada")
+    return JsonResponse(
+        {
+            "ok": resultado["ok"],
+            "motivo": resultado["motivo"],
+            "mensaje": resultado["mensaje"],
+            "folio": getattr(entrada, "folio", None),
+            "tipo": getattr(getattr(entrada, "tipo", None), "nombre", None),
+            "aforo_en_vivo": resultado.get("aforo_en_vivo"),
+            "aforo": resultado.get("aforo"),
+            "aforo_completo": resultado.get("aforo_completo", False),
+        }
     )

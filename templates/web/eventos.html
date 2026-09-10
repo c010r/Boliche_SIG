@@ -1,0 +1,20 @@
+{% extends "web/base.html" %}
+{% block contenido %}
+<h1>Eventos</h1>
+<div class="panel">
+  <table>
+    <tr><th>Evento</th><th>Fecha</th><th>Estado</th><th class="num">Aforo</th><th></th></tr>
+    {% for e in eventos %}
+    <tr>
+      <td>{{ e.nombre }}</td>
+      <td>{{ e.fecha }}</td>
+      <td>{{ e.get_estado_display }}</td>
+      <td class="num">{{ e.aforo }}</td>
+      <td><a href="{% url 'web:evento' e.id %}">Ver</a></td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="5" class="tenue">Todavia no hay eventos. Creá uno desde el admin o con el comando de gestión.</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

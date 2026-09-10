@@ -1,0 +1,61 @@
+{% extends "web/base.html" %}
+{% block contenido %}
+<h1>{{ evento.nombre }}</h1>
+<p class="tenue">{{ evento.fecha }} · {{ evento.get_estado_display }}</p>
+
+<div class="panel">
+  <table>
+    <tr><th>Adentro ahora</th><td class="num">{{ resumen.dentro }} de {{ resumen.aforo }}</td></tr>
+    <tr><th>Entradas vendidas</th><td class="num">{{ resumen.vendidas }}</td></tr>
+    <tr><th>Ya ingresaron</th><td class="num">{{ resumen.usadas }}</td></tr>
+    <tr><th>Anuladas</th><td class="num">{{ resumen.anuladas }}</td></tr>
+    <tr><th>Recaudado</th><td class="num">$ {{ resumen.recaudado }}</td></tr>
+  </table>
+  <div style="margin-top:1rem;">
+    <a class="boton accion" style="display:block; text-decoration:none; text-align:center;" href="{% url 'web:puerta_evento' evento.id %}">Abrir la puerta de este evento</a>
+  </div>
+</div>
+
+<h2>Vender entradas</h2>
+<div class="panel">
+  {% if not resumen.tipos %}
+    <p class="tenue">Este evento no tiene tipos de entrada cargados.</p>
+  {% else %}
+  <form method="post" action="{% url 'web:vender_entradas' evento.id %}">
+    {% csrf_token %}
+    <label for="tipo">Tipo</label>
+    <select id="tipo" name="tipo">
+      {% for t in resumen.tipos %}
+        <option value="{{ t.tipo.id }}">
+          {{ t.tipo.nombre }} · $ {{ t.tipo.precio }} · quedan {{ t.disponibles }}
+        </option>
+      {% endfor %}
+    </select>
+    <label for="cantidad">Cantidad</label>
+    <input id="cantidad" name="cantidad" value="1" inputmode="numeric">
+    <label for="comprador">Nombre del comprador (opcional)</label>
+    <input id="comprador" name="comprador" autocomplete="off">
+    <div style="margin-top:1.2rem;">
+      <button class="accion" type="submit">Emitir y cobrar</button>
+    </div>
+  </form>
+  <p class="tenue chico" style="margin-top:.8rem;">Si no hay una caja abierta, la venta se emite pero <strong>no entra al arqueo</strong>.</p>
+  {% endif %}
+</div>
+
+<h2>Ocupación por tipo</h2>
+<div class="panel">
+  <table>
+    <tr><th>Tipo</th><th class="num">Precio</th><th class="num">Cupo</th><th class="num">Vendidas</th><th class="num">Quedan</th></tr>
+    {% for t in resumen.tipos %}
+    <tr>
+      <td>{{ t.tipo.nombre }}</td>
+      <td class="num">$ {{ t.tipo.precio }}</td>
+      <td class="num">{{ t.cupo }}</td>
+      <td class="num">{{ t.vendidas }}</td>
+      <td class="num">{{ t.disponibles }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

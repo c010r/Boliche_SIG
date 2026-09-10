@@ -1,0 +1,18 @@
+{% extends "web/base.html" %}
+{% block contenido %}
+<h1>Entrada emitida</h1>
+
+<div class="panel" style="text-align:center;">
+  <p><strong>{{ entrada.tipo.nombre }}</strong> · {{ entrada.evento.nombre }}</p>
+  <p class="tenue">{{ entrada.evento.fecha }} · folio {{ entrada.folio }}</p>
+  <div style="background:#fff; padding:1rem; border-radius:.7rem; display:inline-block; margin:1rem 0;">
+    {{ qr|safe }}
+  </div>
+  <p class="tenue chico">Mostrá este código en la puerta. Se usa una sola vez.</p>
+  <p class="tenue chico" style="word-break:break-all;">{{ contenido }}</p>
+</div>
+
+<div class="panel">
+  <a class="boton accion" style="display:block; text-decoration:none; text-align:center;" href="{% url 'web:evento' entrada.evento.id %}">Volver al evento</a>
+</div>
+{% endblock %}

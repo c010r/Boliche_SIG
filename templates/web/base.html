@@ -98,6 +98,8 @@
     {% with actual=request.resolver_match.url_name %}
     <a href="{% url 'web:barra' %}" class="{% if actual == 'barra' %}activo{% endif %}">Barra</a>
     <a href="{% url 'web:caja' %}" class="{% if actual == 'caja' %}activo{% endif %}">Caja</a>
+    <a href="{% url 'web:eventos' %}" class="{% if actual == 'eventos' or actual == 'evento' %}activo{% endif %}">Eventos</a>
+    <a href="{% url 'web:puerta' %}" class="{% if actual == 'puerta' or actual == 'puerta_evento' %}activo{% endif %}">Puerta</a>
     <a href="{% url 'web:panel' %}" class="{% if actual == 'panel' %}activo{% endif %}">Panel</a>
     <a href="{% url 'web:salir' %}">{{ request.user.nombre }}</a>
     {% endwith %}

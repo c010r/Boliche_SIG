@@ -1,0 +1,183 @@
+{% extends "web/base.html" %}
+{% block contenido %}
+<h1>Puerta</h1>
+
+{% if not evento %}
+  <div class="panel"><p class="tenue">No hay eventos cargados.</p></div>
+{% else %}
+
+<div class="panel">
+  <form method="get" onchange="this.submit()">
+    <label for="ev">Evento</label>
+    <select id="ev" name="ev">
+      {% for e in eventos %}
+        <option value="{{ e.id }}" {% if e.id == evento.id %}selected{% endif %}>{{ e.nombre }} · {{ e.fecha }}</option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+
+<div id="resultado" class="panel" style="text-align:center; border-width:3px;">
+  <div id="r-titulo" style="font-size:1.6rem; font-weight:700;">Listo para escanear</div>
+  <div id="r-detalle" class="tenue">Acercá el QR a la cámara.</div>
+</div>
+
+<div class="panel">
+  <div class="tenue chico" style="margin-bottom:.5rem;">
+    Adentro: <strong id="aforo">{{ evento.aforo }}</strong> de {{ evento.aforo }} de aforo
+  </div>
+  <video id="video" playsinline style="width:100%; max-height:320px; border-radius:.6rem; background:#000; display:none;"></video>
+  <div style="margin-top:.8rem;" class="grilla">
+    <button class="accion" id="btn-camara" onclick="iniciarCamara()">Encender cámara</button>
+    <button class="peligro" id="btn-parar" style="display:none;" onclick="pararCamara()">Apagar cámara</button>
+  </div>
+  <p class="tenue chico" id="aviso-camara" style="margin-top:.6rem;">
+    La cámara necesita HTTPS. Si no arranca, usá el código a mano.
+  </p>
+</div>
+
+<div class="panel">
+  <h2 style="margin-top:0;">A mano</h2>
+  <form onsubmit="return false;">
+    <label for="texto">Codigo de la entrada</label>
+    <input id="texto" autocomplete="off" autofocus>
+    <div style="margin-top:1rem;">
+      <button class="accion" onclick="enviarCodigo()">Validar</button>
+    </div>
+  </form>
+</div>
+
+<div class="panel">
+  <h2 style="margin-top:0;">Ingreso manual</h2>
+  <p class="tenue chico">Invitado, lista o alguien que pasó sin escanear. Siempre con motivo: si se puede hacer sin dejar rastro, se va a hacer.</p>
+  <label for="motivo">Motivo</label>
+  <input id="motivo" autocomplete="off" placeholder="Lista del DJ">
+  <label for="cantidad">Cantidad</label>
+  <input id="cantidad" value="1" inputmode="numeric">
+  <div style="margin-top:1rem;">
+    <button class="accion secundaria" onclick="enviarManual()">Registrar ingreso</button>
+  </div>
+</div>
+
+<script>
+  var EVENTO = "{{ evento.id }}";
+  var CSRF = "{{ csrf_token }}";
+  var stream = null, detector = null, intervalo = null, ultimo = null, ultimoCuando = 0;
+
+  function pintar(ok, titulo, detalle, aforo) {
+    var caja = document.getElementById('resultado');
+    caja.style.borderColor = ok ? 'var(--acento)' : 'var(--alerta)';
+    document.getElementById('r-titulo').textContent = titulo;
+    document.getElementById('r-detalle').textContent = detalle || '';
+    if (aforo !== undefined && aforo !== null) {
+      document.getElementById('aforo').textContent = aforo;
+    }
+    sonar(ok);
+  }
+
+  function sonar(ok) {
+    try {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) { return; }
+      var ctx = new Ctx();
+      var osc = ctx.createOscillator();
+      var gan = ctx.createGain();
+      osc.connect(gan); gan.connect(ctx.destination);
+      osc.frequency.value = ok ? 880 : 220;
+      gan.gain.value = 0.15;
+      osc.start();
+      setTimeout(function () { osc.stop(); ctx.close(); }, ok ? 120 : 400);
+    } catch (e) { /* el sonido es una ayuda, no un requisito */ }
+  }
+
+  function enviarCodigo() {
+    var texto = document.getElementById('texto').value.trim();
+    if (!texto) { return; }
+    document.getElementById('texto').value = '';
+    enviar({ texto: texto });
+  }
+
+  function enviarManual() {
+    var motivo = document.getElementById('motivo').value.trim();
+    if (!motivo) { pintar(false, 'Falta el motivo', 'Un ingreso manual sin motivo no se registra.'); return; }
+    enviar({
+      manual: motivo,
+      cantidad: document.getElementById('cantidad').value
+    });
+    document.getElementById('motivo').value = '';
+  }
+
+  function enviar(datos) {
+    var cuerpo = new URLSearchParams();
+    cuerpo.append('csrfmiddlewaretoken', CSRF);
+    cuerpo.append('evento', EVENTO);
+    for (var k in datos) { cuerpo.append(k, datos[k]); }
+
+    fetch("{% url 'web:validar' %}", {
+      method: 'POST',
+      headers: { 'X-CSRFToken': CSRF },
+      body: cuerpo
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      var titulo = d.ok ? 'ADELANTE' : 'NO PASA';
+      var detalle = d.mensaje || '';
+      if (d.folio) { detalle = (d.tipo ? d.tipo + ' · ' : '') + 'folio ' + d.folio + '. ' + detalle; }
+      if (d.aforo_completo) { detalle = detalle + '  OJO: el aforo esta completo.'; }
+      pintar(d.ok, titulo, detalle, d.aforo_en_vivo);
+    }).catch(function () {
+      pintar(false, 'Sin conexion', 'No se pudo validar. Anotá el folio y seguí.');
+    });
+  }
+
+  function iniciarCamara() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      pintar(false, 'Sin camara', 'Este navegador no da acceso a la camara. Usá el codigo a mano.');
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      .then(function (s) {
+        stream = s;
+        var v = document.getElementById('video');
+        v.srcObject = s; v.style.display = 'block'; v.play();
+        document.getElementById('btn-camara').style.display = 'none';
+        document.getElementById('btn-parar').style.display = 'block';
+
+        if ('BarcodeDetector' in window) {
+          detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+          intervalo = setInterval(leerCuadro, 400);
+          document.getElementById('aviso-camara').textContent = 'Lector automatico activo.';
+        } else {
+          document.getElementById('aviso-camara').textContent =
+            'Este navegador no lee QR automaticamente (pasa en iPhone). Usá el codigo a mano o un Android.';
+        }
+      })
+      .catch(function () {
+        pintar(false, 'Sin camara', 'No se pudo abrir la camara. Sin HTTPS no arranca: usá el codigo a mano.');
+      });
+  }
+
+  function leerCuadro() {
+    if (!detector || !stream) { return; }
+    detector.detect(document.getElementById('video')).then(function (codigos) {
+      if (!codigos.length) { return; }
+      var valor = codigos[0].rawValue;
+      var ahora = Date.now();
+      if (valor === ultimo && ahora - ultimoCuando < 3000) { return; }
+      ultimo = valor; ultimoCuando = ahora;
+      enviar({ texto: valor });
+    }).catch(function () { /* cuadro ilegible: se reintenta */ });
+  }
+
+  function pararCamara() {
+    if (intervalo) { clearInterval(intervalo); intervalo = null; }
+    if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
+    document.getElementById('video').style.display = 'none';
+    document.getElementById('btn-camara').style.display = 'block';
+    document.getElementById('btn-parar').style.display = 'none';
+  }
+
+  document.getElementById('texto').addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter') { ev.preventDefault(); enviarCodigo(); }
+  });
+</script>
+{% endif %}
+{% endblock %}

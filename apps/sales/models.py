@@ -116,6 +116,9 @@ class Venta(TenantModel):
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0"))
     descuento = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0"))
     total = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0"))
+    # Una venta de entradas no tiene productos: tiene concepto. "3 entradas
+    # General - Fiesta del viernes". Igual entra en la caja y en el arqueo.
+    concepto = models.CharField(max_length=150, blank=True)
 
     # Reloj del dispositivo y clave de idempotencia: sin los dos, la cola
     # offline duplica ventas o las ordena mal (seccion 4).

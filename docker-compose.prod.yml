@@ -1,0 +1,82 @@
+# Despliegue de produccion: base, aplicacion y proxy con TLS automatico.
+#
+#   1. Copiar .env.example a .env y completar DOMINIO y las claves.
+#   2. docker compose -f docker-compose.prod.yml up -d --build
+#
+# Caddy saca el certificado de Let's Encrypt solo, que es requisito real y no
+# formalidad: sin HTTPS la camara del celular no arranca y la validacion de
+# entradas en la puerta no funciona (ANALISIS.md seccion 4).
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-boliche_sig}
+      POSTGRES_USER: ${POSTGRES_USER:-boliche}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?falta POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-boliche} -d ${POSTGRES_DB:-boliche_sig}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?falta DJANGO_SECRET_KEY}
+      DJANGO_DEBUG: "False"
+      DJANGO_ALLOWED_HOSTS: ${DOMINIO:?falta DOMINIO}
+      DJANGO_CSRF_TRUSTED_ORIGINS: https://${DOMINIO}
+      POSTGRES_DB: ${POSTGRES_DB:-boliche_sig}
+      POSTGRES_USER: ${POSTGRES_USER:-boliche}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?falta POSTGRES_PASSWORD}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    environment:
+      DOMINIO: ${DOMINIO:?falta DOMINIO}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+  # Respaldo diario de la base, con retencion de 14 dias.
+  backup:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:?falta POSTGRES_PASSWORD}
+      POSTGRES_USER: ${POSTGRES_USER:-boliche}
+      POSTGRES_DB: ${POSTGRES_DB:-boliche_sig}
+    volumes:
+      - ./backups:/backups
+    entrypoint: >
+      sh -c 'while true; do
+        pg_dump -h db -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -Fc
+          -f "/backups/boliche_$$(date +%Y%m%d_%H%M).dump";
+        find /backups -name "boliche_*.dump" -mtime +14 -delete;
+        sleep 86400;
+      done'
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

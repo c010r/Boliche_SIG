@@ -1,0 +1,8 @@
+# El proxy saca el certificado solo. Sin HTTPS no hay camara en la puerta.
+{$DOMINIO} {
+	encode gzip
+	reverse_proxy app:8000
+	log {
+		output file /data/access.log
+	}
+}

@@ -26,7 +26,16 @@ En construcción, siguiendo la secuencia de `ANALISIS.md` §15 bis.
       una noche de demostración completa
 - [x] **Hito 8** — interfaz web: ingreso por número y PIN, barra con botonera táctil,
       cierre de caja con arqueo y panel del dueño con la varianza
-- [ ] **Hito 9** — despliegue con Docker y manual de instalación
+- [x] **Hito 9** — despliegue con Docker, proxy con TLS automático, respaldo diario
+      y manual de instalación, operación y runbook de noche
+
+## Lo que falta
+
+El **MVP de la Fase 1 está completo y desplegable**. Falta la Fase 2 del plan:
+
+- Módulo de entradas: venta online, QR de un solo uso y validación en puerta
+- Control de aforo y listas con promotores
+- Modo offline de la barra (Fase 3)
 
 **157 tests en verde**, más una verificación de punta a punta por HTTP real
 (`scripts/verificar_interfaz.py`). La puerta de la Etapa 0 (aislamiento entre dos tenants) está

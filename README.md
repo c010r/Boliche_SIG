@@ -41,6 +41,8 @@ En construcción, siguiendo la secuencia de `ANALISIS.md` §15 bis.
 
 - [x] **Hito 14** — proveedor real de **Mercado Pago** contra la Orders API, con
       credenciales por boliche, validación de firma y mapeo de estados
+- [x] **Hito 15** — export por boliche: backup aislado, derecho de acceso y portabilidad
+      en un solo comando
 
 ## Lo que falta
 
@@ -49,7 +51,7 @@ En construcción, siguiendo la secuencia de `ANALISIS.md` §15 bis.
 - Comisión de promotor **sobre el consumo**: hoy sólo se liquida por persona que
   ingresa, que es lo verificable desde el registro de la puerta
 
-**332 tests en verde**, más cuatro verificaciones de punta a punta por HTTP real:
+**341 tests en verde**, más cuatro verificaciones de punta a punta por HTTP real:
 `scripts/verificar_interfaz.py` (barra y caja), `scripts/verificar_puerta.py`
 (venta en puerta, QR, aforo, listas), `scripts/verificar_tienda.py`
 (cartelera pública, reserva, pago y entrega del QR) y `scripts/verificar_offline.py`

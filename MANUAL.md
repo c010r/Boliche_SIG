@@ -74,6 +74,23 @@ docker compose -f docker-compose.prod.yml exec -T db \
 **Probá la restauración antes de necesitarla.** Un respaldo que nunca se restauró
 no es un respaldo.
 
+### Export de un boliche
+
+```bash
+python manage.py exportar_boliche --slug demo --salida backups/demo.json
+```
+
+Saca **todos los datos de ese boliche y sólo de ese**, en el mismo formato que usa
+`loaddata`, así que el archivo sirve como respaldo y no sólo como informe. Resuelve
+tres cosas con un solo mecanismo:
+
+- el **backup aislado** que un cliente puede pedir por contrato;
+- el **derecho de acceso** de la Ley 18.331: hay que poder entregarle a alguien todo
+  lo que el sistema guarda sobre él;
+- la **portabilidad** si el boliche se va: sus datos son suyos.
+
+La carpeta `backups/` está ignorada por git a propósito: contiene datos de clientes.
+
 ---
 
 ## 3. Instalación para desarrollo
@@ -382,9 +399,9 @@ mezclan en la misma sesión.**
 ## 10. Estado del desarrollo
 
 Ver el detalle en [`README.md`](README.md). Resumen: el núcleo de **Fase 1** está
-completo y verificado con **332 tests**, cuatro verificaciones de punta a punta por
-HTTP (barra y caja, puerta con listas, compra online y barra offline) y el despliegue
-Docker construido y comprobado.
+completo y verificado con **341 tests**, cuatro verificaciones de punta a punta por
+HTTP (barra y caja, puerta con listas, compra online y barra offline), el despliegue
+Docker construido y comprobado, y export por boliche.
 
 **Falta:** cargar las credenciales de Mercado Pago de cada boliche y hacer una compra
 de prueba contra su sandbox. El código de la integración está completo y probado sin

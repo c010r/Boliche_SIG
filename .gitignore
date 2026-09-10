@@ -29,3 +29,7 @@ Thumbs.db
 .coverage
 htmlcov/
 .pytest_cache/
+
+# Respaldos y exports: contienen datos reales de clientes
+backups/
+*.dump

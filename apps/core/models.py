@@ -4,7 +4,11 @@ import uuid
 
 from django.db import models
 
-from apps.core.managers import TenantManager, UnscopedManager
+from apps.core.context import (
+    TenantNotSetError,
+    get_current_tenant,
+)
+from apps.core.managers import TenantManager, TenantMismatchError, UnscopedManager
 
 
 class UUIDModel(models.Model):
@@ -52,3 +56,29 @@ class TenantModel(UUIDModel, TimeStampedModel):
         abstract = True
         base_manager_name = "unscoped"
         default_manager_name = "objects"
+
+    def save(self, *args, **kwargs):
+        """Fuerza el tenant del contexto en TODOS los caminos de escritura.
+
+        El manager cubre objects.create(), pero get_or_create(), update_or_create()
+        y cualquier ruta que llame al create del queryset lo saltean. Ponerlo aca
+        es lo que hace que la regla no tenga agujeros.
+        """
+        tenant = get_current_tenant()
+
+        if self.tenant_id is None:
+            if tenant is None:
+                raise TenantNotSetError(
+                    "Sin tenant en contexto: no se puede guardar "
+                    + self._meta.label
+                    + ". Usa " + self._meta.model_name + ".unscoped."
+                )
+            self.tenant = tenant
+        elif tenant is not None and self.tenant_id != tenant.id:
+            raise TenantMismatchError(
+                "El objeto pertenece a otro boliche que el del contexto en "
+                + self._meta.label
+                + "."
+            )
+
+        return super().save(*args, **kwargs)

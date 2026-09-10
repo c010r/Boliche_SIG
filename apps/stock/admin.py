@@ -1,6 +1,13 @@
 from django.contrib import admin
 
-from apps.stock.models import Deposito, StockItem, StockMovimiento
+from apps.stock.models import (
+    AjusteInventario,
+    Conteo,
+    ConteoItem,
+    Deposito,
+    StockItem,
+    StockMovimiento,
+)
 
 
 @admin.register(Deposito)
@@ -14,6 +21,28 @@ class StockItemAdmin(admin.ModelAdmin):
     list_display = ("insumo", "deposito", "cantidad")
     list_filter = ("tenant", "deposito")
     search_fields = ("insumo__nombre",)
+
+
+class ConteoItemInline(admin.TabularInline):
+    model = ConteoItem
+    extra = 0
+    readonly_fields = (
+        "insumo", "unidades_cerradas", "fraccion_abierta",
+        "cantidad_declarada", "cantidad_teorica", "diferencia",
+    )
+
+
+@admin.register(Conteo)
+class ConteoAdmin(admin.ModelAdmin):
+    list_display = ("deposito", "usuario", "estado", "iniciado_en", "duracion_seg")
+    list_filter = ("tenant", "estado", "deposito")
+    inlines = [ConteoItemInline]
+
+
+@admin.register(AjusteInventario)
+class AjusteInventarioAdmin(admin.ModelAdmin):
+    list_display = ("conteo_item", "diferencia", "motivo", "autorizado_por", "creado_en")
+    list_filter = ("tenant",)
 
 
 @admin.register(StockMovimiento)

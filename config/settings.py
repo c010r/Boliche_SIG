@@ -122,3 +122,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Bloqueo de PIN tras intentos fallidos (seccion 4 bis).
 PIN_MAX_INTENTOS = int(os.getenv("PIN_MAX_INTENTOS", "5"))
 PIN_BLOQUEO_MINUTOS = int(os.getenv("PIN_BLOQUEO_MINUTOS", "15"))
+
+# Un ajuste de inventario que supera este valor (en moneda local) exige un
+# autorizante distinto de quien conto (seccion 11 ter).
+AJUSTE_UMBRAL_AUTORIZACION = os.getenv("AJUSTE_UMBRAL_AUTORIZACION", "500")

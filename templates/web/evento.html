@@ -11,8 +11,9 @@
     <tr><th>Anuladas</th><td class="num">{{ resumen.anuladas }}</td></tr>
     <tr><th>Recaudado</th><td class="num">$ {{ resumen.recaudado }}</td></tr>
   </table>
-  <div style="margin-top:1rem;">
-    <a class="boton accion" style="display:block; text-decoration:none; text-align:center;" href="{% url 'web:puerta_evento' evento.id %}">Abrir la puerta de este evento</a>
+  <div style="margin-top:1rem;" class="grilla">
+    <a class="boton accion" style="display:block; text-decoration:none; text-align:center;" href="{% url 'web:puerta_evento' evento.id %}">Abrir la puerta</a>
+    <a class="boton accion secundaria" style="display:block; text-decoration:none; text-align:center;" href="{% url 'web:listas' evento.id %}">Listas y comisiones</a>
   </div>
 </div>
 

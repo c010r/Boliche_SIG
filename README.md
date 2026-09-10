@@ -33,17 +33,20 @@ En construcción, siguiendo la secuencia de `ANALISIS.md` §15 bis.
       validación en puerta con aviso de aforo y ledger de aforo append-only
 - [x] **Hito 11** — venta online: tienda pública sin cuenta, **reserva con expiración**,
       webhook de pago idempotente y entrega del QR
+- [x] **Hito 12** — listas de invitados y promotores: corte aplicado por el sistema,
+      atribución registrada en la puerta y liquidación de comisiones
 
 ## Lo que falta
 
 - **Integración real con Mercado Pago**: el flujo está completo y probado contra un
   proveedor simulado, con el contrato listo para implementar
-- Listas y promotores con comisión
 - Modo offline de la barra (Fase 3)
+- Comisión de promotor **sobre el consumo**: hoy sólo se liquida por persona que
+  ingresa, que es lo verificable desde el registro de la puerta
 
-**253 tests en verde**, más tres verificaciones de punta a punta por HTTP real:
+**292 tests en verde**, más tres verificaciones de punta a punta por HTTP real:
 `scripts/verificar_interfaz.py` (barra y caja), `scripts/verificar_puerta.py`
-(venta en puerta, QR, validación y aforo) y `scripts/verificar_tienda.py`
+(venta en puerta, QR, aforo, listas) y `scripts/verificar_tienda.py`
 (cartelera pública, reserva, pago y entrega del QR). La puerta de la Etapa 0 (aislamiento entre dos tenants) está
 cumplida y se verifica en cada corrida.
 

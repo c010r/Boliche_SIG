@@ -7,7 +7,7 @@ sin cargar nada a mano, y mostrarle el sistema a un boliche en cinco minutos.
 Uso:  python manage.py demo
 """
 
-from datetime import date
+from datetime import date, time
 from decimal import Decimal
 
 from django.core.management.base import BaseCommand
@@ -32,7 +32,14 @@ from apps.stock.models import Deposito, StockMovimiento
 from apps.stock.reportes import reporte_de_varianza
 from apps.stock.services import registrar_movimiento, saldo_calculado
 from apps.tenancy.models import Local, Terminal
-from apps.ticketing.models import Entrada
+from apps.ticketing.listas import (
+    agregar_invitado,
+    crear_lista,
+    crear_promotor,
+    liquidar_comisiones,
+    validar_ingreso_de_lista,
+)
+from apps.ticketing.models import Entrada, Lista
 from apps.ticketing.services import (
     aforo_en_vivo,
     agregar_tipo,
@@ -171,17 +178,27 @@ class Command(BaseCommand):
             AjusteInventario, Conteo, ConteoItem, Deposito, StockItem, StockMovimiento,
         )
         from apps.tenancy.models import Local, Tenant, Terminal
-        from apps.ticketing.models import Entrada, Evento, MovimientoAforo, TipoEntrada
+        from apps.ticketing.models import (
+            ComisionPromotor, Entrada, Evento, Lista, ListaInvitado,
+            MovimientoAforo, Promotor, Reserva, TipoEntrada, UsoLista,
+        )
 
         tenant = Tenant.objects.filter(slug=slug).first()
         if tenant is None:
             return
 
-        # El orden importa: todas las FK son PROTECT.
+        # El orden importa: casi todas las FK son PROTECT.
+        #
+        # Encadenamientos a respetar:
+        #   UsoLista -> ListaInvitado -> Lista -> Promotor
+        #   MovimientoAforo -> Entrada -> Reserva / Venta
+        #   ComisionPromotor -> Evento y Promotor
         en_orden = [
             ArqueoLinea, Arqueo, AjusteInventario, ConteoItem, Conteo,
-            Pago, ItemVenta, MovimientoAforo, Entrada, Venta, EgresoCaja,
-            SesionCaja, Turno, TipoEntrada, Evento,
+            Pago, ItemVenta,
+            UsoLista, MovimientoAforo, Entrada, Reserva,
+            ComisionPromotor, ListaInvitado, Lista, Promotor,
+            Venta, EgresoCaja, SesionCaja, Turno, TipoEntrada, Evento,
             StockMovimiento, StockItem,
             Terminal, Deposito,
             ComboItem, RecetaItem, Receta, Producto, CategoriaProducto,
@@ -244,9 +261,14 @@ class Command(BaseCommand):
         return total
 
     def _operar_puerta(self, turno, terminal_puerta, encargado, local):
+        # La hora de apertura no es decorativa: es lo que permite calcular bien el
+        # corte de lista. Un corte a la 01:00 con apertura a las 23:00 cae al dia
+        # SIGUIENTE; sin apertura, el sistema lo tomaria como la 01:00 de hoy, o
+        # sea en el pasado, y la lista nace cortada.
         evento = crear_evento(
             local=local, nombre="Fiesta de demo",
             fecha=timezone.localdate(), aforo=120,
+            hora_apertura=time(23, 0), hora_cierre=time(6, 0),
         )
         general = agregar_tipo(
             evento=evento, nombre="General", precio="500", cupo=80, orden=1
@@ -293,6 +315,42 @@ class Command(BaseCommand):
             terminal=terminal_puerta, usuario=encargado,
         )
 
+        # Listas y promotores: el corte lo aplica el sistema, la atribucion se
+        # registra en la puerta, y las comisiones salen de ese registro.
+        promotor = crear_promotor(nombre="Rocio", valor_comision="150")
+        lista_promotor = crear_lista(
+            evento=evento, nombre="Lista de Rocio", cupo=25,
+            tipo=Lista.Tipo.PROMOTOR, promotor=promotor,
+            creada_por=encargado, hora_de_corte=time(1, 0),
+        )
+        crear_lista(
+            evento=evento, nombre="Lista de la casa", cupo=15,
+            tipo=Lista.Tipo.CASA, creada_por=encargado,
+        )
+
+        personas_por_lista = 0
+        rechazos = []
+        for nombre, personas in (("Ana", 3), ("Beto", 2), ("Carla", 4), ("Dani", 1)):
+            invitado = agregar_invitado(
+                lista=lista_promotor, nombre=nombre, personas=personas
+            )
+            resultado = validar_ingreso_de_lista(
+                evento=evento, texto=invitado.qr_token, personas=personas,
+                terminal=terminal_puerta, usuario=encargado,
+            )
+            if resultado["ok"]:
+                personas_por_lista += personas
+            else:
+                # Que un rechazo no pase inadvertido: la primera version de esta
+                # demo rechazaba las diez y no lo decia.
+                rechazos.append(f"{nombre}: {resultado['mensaje']}")
+
+        for linea in rechazos:
+            self.stdout.write(self.style.ERROR(f"  RECHAZADO en lista -> {linea}"))
+
+        comisiones = liquidar_comisiones(evento=evento, usuario=encargado)
+        total_comision = sum((c.monto for c in comisiones), Decimal("0"))
+
         esperado = calcular_esperado(sesion_puerta)
         cerrar_caja(
             sesion=sesion_puerta,
@@ -301,6 +359,10 @@ class Command(BaseCommand):
         )
         self.stdout.write(
             f"  Entradas vendidas: {len(vendidas)} | ingresaron con QR: {validadas}"
+        )
+        self.stdout.write(
+            f"  Listas: {personas_por_lista} personas | comision liquidada: "
+            f"{total_comision}"
         )
         return resumen_de_evento(evento), validadas
 

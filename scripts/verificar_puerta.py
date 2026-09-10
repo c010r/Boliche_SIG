@@ -101,6 +101,44 @@ if entrada_id:
                                   "manual": "1", "cantidad": "1"}, json_out=True)
     ok(d4.get("ok") is False, "el ingreso manual sin motivo se rechaza")
 
+print("8) Listas de invitados")
+st, html, _ = get("/eventos/" + ev + "/listas/")
+ok(st == 200, "la pantalla de listas carga")
+ok("El corte de cada lista lo aplica el sistema" in html, "explica la regla del corte")
+
+_, html2, url = post("/eventos/" + ev + "/listas/", {
+    "csrfmiddlewaretoken": CSRF[0], "accion": "crear_lista",
+    "nombre": "Lista de verificacion", "tipo": "promotor",
+    "promotor": "", "cupo": "10", "hora_de_corte": "01:00",
+})
+st, html, _ = get("/eventos/" + ev + "/listas/")
+ok("Lista de verificacion" in html, "la lista quedo creada")
+
+_, html, url = post("/eventos/" + ev + "/listas/", {
+    "csrfmiddlewaretoken": CSRF[0], "accion": "agregar_invitado",
+    "lista": re.search(r'<option value="([0-9a-f-]+)">Lista de verificacion', html).group(1),
+    "nombre": "Verificada", "personas": "2",
+})
+
+_, datos, _ = post("/validar-lista/", {
+    "csrfmiddlewaretoken": CSRF[0], "evento": ev,
+    "nombre": "Verificada", "personas": "2",
+}, json_out=True)
+ok(datos.get("ok") is True, "el invitado pasa: " + str(datos.get("mensaje")))
+
+_, datos2, _ = post("/validar-lista/", {
+    "csrfmiddlewaretoken": CSRF[0], "evento": ev,
+    "nombre": "Verificada", "personas": "5",
+}, json_out=True)
+ok(datos2.get("ok") is False, "no pasa mas gente de la que cubre")
+ok(datos2.get("motivo") == "sin_personas", "el motivo es sin_personas")
+
+_, datos3, _ = post("/validar-lista/", {
+    "csrfmiddlewaretoken": CSRF[0], "evento": ev,
+    "nombre": "No Existe",
+}, json_out=True)
+ok(datos3.get("ok") is False, "un nombre desconocido no pasa")
+
 print("")
 if fallas:
     print("RESULTADO: " + str(len(fallas)) + " verificacion(es) fallaron")

@@ -1,0 +1,103 @@
+{% extends "web/base.html" %}
+{% block contenido %}
+<h1>Listas de {{ evento.nombre }}</h1>
+<p class="tenue">{{ evento.fecha }} · <a href="{% url 'web:evento' evento.id %}">volver al evento</a></p>
+
+<div class="panel">
+  <p class="tenue chico">
+    El corte de cada lista lo aplica el sistema, no el de la puerta. La atribucion
+    se registra al ingresar y no se edita despues. Y la lista consume aforo.
+  </p>
+  <table>
+    <tr><th>Lista</th><th>Tipo</th><th>Promotor</th><th class="num">Cupo</th><th class="num">Usados</th><th>Corte</th><th>Vigente</th></tr>
+    {% for f in resumen.filas %}
+    <tr>
+      <td>{{ f.lista.nombre }}</td>
+      <td class="tenue">{{ f.lista.get_tipo_display }}</td>
+      <td>{% if f.promotor %}{{ f.promotor.nombre }}{% else %}<span class="tenue">-</span>{% endif %}</td>
+      <td class="num">{{ f.cupo }}</td>
+      <td class="num">{{ f.usados }}</td>
+      <td>{% if f.corte %}{{ f.corte|date:"d/m H:i" }}{% else %}<span class="tenue">sin corte</span>{% endif %}</td>
+      <td>{% if f.vigente %}<span class="pos">si</span>{% else %}<span class="neg">no</span>{% endif %}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="7" class="tenue">Todavia no hay listas para este evento.</td></tr>
+    {% endfor %}
+  </table>
+  <p class="tenue chico" style="margin-top:.8rem;">Personas que entraron por lista: {{ resumen.personas_por_lista }}</p>
+</div>
+
+<h2>Crear lista</h2>
+<div class="panel">
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="accion" value="crear_lista">
+    <label for="nombre">Nombre</label>
+    <input id="nombre" name="nombre" autocomplete="off" placeholder="Lista de Rocio">
+    <label for="tipo">Tipo</label>
+    <select id="tipo" name="tipo">
+      {% for codigo, etiqueta in tipos_de_lista %}<option value="{{ codigo }}">{{ etiqueta }}</option>{% endfor %}
+    </select>
+    <label for="promotor">Promotor (solo para listas de promotor)</label>
+    <select id="promotor" name="promotor">
+      <option value="">-</option>
+      {% for p in promotores %}<option value="{{ p.id }}">{{ p.nombre }} ({{ p.valor_comision }} por persona)</option>{% endfor %}
+    </select>
+    <label for="cupo">Cupo total de la lista</label>
+    <input id="cupo" name="cupo" value="20" inputmode="numeric">
+    <label for="hora_de_corte">Hora de corte (opcional)</label>
+    <input id="hora_de_corte" name="hora_de_corte" type="time">
+    <div style="margin-top:1.2rem;"><button class="accion" type="submit">Crear lista</button></div>
+  </form>
+</div>
+
+<h2>Agregar invitado</h2>
+<div class="panel">
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="accion" value="agregar_invitado">
+    <label for="lista">Lista</label>
+    <select id="lista" name="lista">
+      {% for f in resumen.filas %}<option value="{{ f.lista.id }}">{{ f.lista.nombre }} (quedan {{ f.disponibles }})</option>{% endfor %}
+    </select>
+    <label for="nombre_inv">Nombre</label>
+    <input id="nombre_inv" name="nombre" autocomplete="off">
+    <label for="personas">Personas que cubre (1 + acompanantes)</label>
+    <input id="personas" name="personas" value="2" inputmode="numeric">
+    <div style="margin-top:1.2rem;"><button class="accion" type="submit">Agregar</button></div>
+  </form>
+</div>
+
+<h2>Comisiones</h2>
+<div class="panel">
+  <p class="tenue chico">
+    La base nunca es lo que declara el promotor: son las personas que quedaron
+    registradas en la puerta por sus listas.
+  </p>
+  <form method="post" style="margin-bottom:1rem;">
+    {% csrf_token %}
+    <input type="hidden" name="accion" value="liquidar">
+    <button class="accion secundaria" type="submit">Liquidar comisiones del evento</button>
+  </form>
+  <table>
+    <tr><th>Promotor</th><th class="num">Personas</th><th class="num">Monto</th><th>Estado</th><th></th></tr>
+    {% for c in comisiones %}
+    <tr>
+      <td>{{ c.promotor.nombre }}</td>
+      <td class="num">{{ c.personas }}</td>
+      <td class="num">$ {{ c.monto }}</td>
+      <td>{{ c.get_estado_display }}</td>
+      <td class="num">
+        {% if c.estado == "calculada" %}
+          <form method="post">{% csrf_token %}<input type="hidden" name="accion" value="aprobar"><input type="hidden" name="comision" value="{{ c.id }}"><button class="accion secundaria" type="submit">Aprobar</button></form>
+        {% elif c.estado == "aprobada" %}
+          <form method="post">{% csrf_token %}<input type="hidden" name="accion" value="pagar"><input type="hidden" name="comision" value="{{ c.id }}"><button class="accion" type="submit">Pagar</button></form>
+        {% else %}<span class="tenue">pagada</span>{% endif %}
+      </td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="5" class="tenue">Sin comisiones liquidadas.</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

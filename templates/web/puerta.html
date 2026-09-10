@@ -48,6 +48,19 @@
 </div>
 
 <div class="panel">
+  <h2 style="margin-top:0;">Lista</h2>
+  <p class="tenue chico">El corte lo aplica el sistema: si la lista ya se corto, no deja pasar.</p>
+  <label for="l-nombre">Nombre del invitado</label>
+  <input id="l-nombre" autocomplete="off">
+  <label for="l-personas">Personas</label>
+  <input id="l-personas" value="1" inputmode="numeric">
+  <div style="margin-top:1rem;" class="grilla">
+    <button class="accion" onclick="enviarLista(false)">Buscar y pasar</button>
+    <button class="peligro" onclick="enviarLista(true)">Forzar con aforo lleno</button>
+  </div>
+</div>
+
+<div class="panel">
   <h2 style="margin-top:0;">Ingreso manual</h2>
   <p class="tenue chico">Invitado, lista o alguien que pasó sin escanear. Siempre con motivo: si se puede hacer sin dejar rastro, se va a hacer.</p>
   <label for="motivo">Motivo</label>
@@ -94,7 +107,7 @@
     var texto = document.getElementById('texto').value.trim();
     if (!texto) { return; }
     document.getElementById('texto').value = '';
-    enviar({ texto: texto });
+    enviarConLista({ texto: texto });
   }
 
   function enviarManual() {
@@ -163,7 +176,7 @@
       var ahora = Date.now();
       if (valor === ultimo && ahora - ultimoCuando < 3000) { return; }
       ultimo = valor; ultimoCuando = ahora;
-      enviar({ texto: valor });
+      enviarConLista({ texto: valor });
     }).catch(function () { /* cuadro ilegible: se reintenta */ });
   }
 
@@ -173,6 +186,68 @@
     document.getElementById('video').style.display = 'none';
     document.getElementById('btn-camara').style.display = 'block';
     document.getElementById('btn-parar').style.display = 'none';
+  }
+
+  function enviarLista(forzar) {
+    var nombre = document.getElementById('l-nombre').value.trim();
+    if (!nombre) {
+      pintar(false, 'Falta el nombre', 'Escribi el nombre del invitado.');
+      return;
+    }
+    var cuerpo = new URLSearchParams();
+    cuerpo.append('csrfmiddlewaretoken', CSRF);
+    cuerpo.append('evento', EVENTO);
+    cuerpo.append('nombre', nombre);
+    cuerpo.append('personas', document.getElementById('l-personas').value);
+    if (forzar) { cuerpo.append('forzar', '1'); }
+
+    fetch("{% url 'web:validar_lista' %}", {
+      method: 'POST',
+      headers: { 'X-CSRFToken': CSRF },
+      body: cuerpo
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      var detalle = d.mensaje || '';
+      if (d.invitado) { detalle = d.invitado + '. ' + detalle; }
+      pintar(d.ok, d.ok ? 'ADELANTE' : 'NO PASA', detalle, d.aforo_en_vivo);
+      if (d.ok) { document.getElementById('l-nombre').value = ''; }
+    }).catch(function () {
+      pintar(false, 'Sin conexion', 'No se pudo validar la lista.');
+    });
+  }
+
+  // El QR de una invitacion se escanea en el mismo lector que el de una entrada:
+  // si no es una entrada, se prueba contra la lista antes de rechazar.
+  function enviarConLista(datos) {
+    var cuerpo = new URLSearchParams();
+    cuerpo.append('csrfmiddlewaretoken', CSRF);
+    cuerpo.append('evento', EVENTO);
+    for (var k in datos) { cuerpo.append(k, datos[k]); }
+
+    fetch("{% url 'web:validar' %}", {
+      method: 'POST',
+      headers: { 'X-CSRFToken': CSRF },
+      body: cuerpo
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.ok && d.motivo === 'no_existe') {
+        fetch("{% url 'web:validar_lista' %}", {
+          method: 'POST',
+          headers: { 'X-CSRFToken': CSRF },
+          body: cuerpo
+        }).then(function (r2) { return r2.json(); }).then(function (d2) {
+          var detalle = d2.mensaje || '';
+          if (d2.invitado) { detalle = d2.invitado + '. ' + detalle; }
+          pintar(d2.ok, d2.ok ? 'ADELANTE' : 'NO PASA', detalle, d2.aforo_en_vivo);
+        });
+        return;
+      }
+      var titulo = d.ok ? 'ADELANTE' : 'NO PASA';
+      var detalle = d.mensaje || '';
+      if (d.folio) { detalle = (d.tipo ? d.tipo + ' · ' : '') + 'folio ' + d.folio + '. ' + detalle; }
+      if (d.aforo_completo) { detalle = detalle + '  OJO: el aforo esta completo.'; }
+      pintar(d.ok, titulo, detalle, d.aforo_en_vivo);
+    }).catch(function () {
+      pintar(false, 'Sin conexion', 'No se pudo validar.');
+    });
   }
 
   document.getElementById('texto').addEventListener('keydown', function (ev) {

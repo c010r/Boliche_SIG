@@ -20,6 +20,8 @@ urlpatterns = [
     path("puerta/", views.puerta, name="puerta"),
     path("puerta/<uuid:evento_id>/", views.puerta, name="puerta_evento"),
     path("validar/", views.validar, name="validar"),
+    path("validar-lista/", views.validar_lista, name="validar_lista"),
+    path("eventos/<uuid:evento_id>/listas/", views.listas, name="listas"),
     # Tienda publica (anonima: el boliche sale del slug)
     path("tienda/<slug:slug>/", views.tienda, name="tienda"),
     path("tienda/<slug:slug>/<uuid:evento_id>/", views.tienda_evento, name="tienda_evento"),

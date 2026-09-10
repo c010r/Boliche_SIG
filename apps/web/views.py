@@ -40,6 +40,11 @@ from apps.sales.services import (
     resumen_de_ventas,
 )
 from apps.stock.reportes import reporte_de_varianza
+from apps.ticketing.listas import (
+    agregar_invitado,
+    crear_lista,
+    liquidar_comisiones,
+)
 from apps.ticketing.reservas import (
     confirmar_reserva,
     crear_reserva,
@@ -412,7 +417,10 @@ def vender_entradas(request, evento_id):
     from apps.ticketing.services import vender_entrada
 
     objeto = Evento.objects.filter(pk=evento_id).first()
-    tipo = TipoEntrada.objects.filter(pk=request.POST.get("tipo"), evento=objeto).first()
+    tipo_id = (request.POST.get("tipo") or "").strip()
+    tipo = (
+        TipoEntrada.objects.filter(pk=tipo_id, evento=objeto).first() if tipo_id else None
+    )
     if objeto is None or tipo is None:
         messages.error(request, "Elegi un tipo de entrada.")
         return redirect("web:eventos")
@@ -830,5 +838,185 @@ def webhook_de_pago(request):
             "estado": resultado["estado"],
             "mensaje": resultado["mensaje"],
             "entradas": [e.qr_token for e in resultado["entradas"]],
+        }
+    )
+
+
+# --- listas y promotores --------------------------------------------------
+
+
+def listas(request, evento_id):
+    """Listas del evento, su uso y la liquidacion de comisiones."""
+    if not request.user.is_authenticated:
+        return redirect("web:ingresar")
+    if request.tenant is None:
+        return redirect("web:inicio")
+    if not request.user.tiene_permiso("listas.gestionar"):
+        messages.error(request, "No tenes permiso para gestionar listas.")
+        return redirect("web:inicio")
+
+    from apps.ticketing.models import ComisionPromotor, Evento, Lista, Promotor
+    from apps.ticketing.listas import resumen_de_listas
+
+    objeto = Evento.objects.filter(pk=evento_id).first()
+    if objeto is None:
+        messages.error(request, "Ese evento no existe.")
+        return redirect("web:eventos")
+
+    if request.method == "POST":
+        accion = request.POST.get("accion")
+
+        if accion == "crear_lista":
+            try:
+                cupo = int(request.POST.get("cupo") or 0)
+            except ValueError:
+                cupo = 0
+            corte = (request.POST.get("hora_de_corte") or "").strip()
+            # filter(pk="") con un UUID vacio revienta: hay que preguntar antes.
+            promotor_id = (request.POST.get("promotor") or "").strip()
+            promotor = (
+                Promotor.objects.filter(pk=promotor_id).first() if promotor_id else None
+            )
+            try:
+                crear_lista(
+                    evento=objeto,
+                    nombre=(request.POST.get("nombre") or "").strip(),
+                    cupo=cupo,
+                    tipo=request.POST.get("tipo") or Lista.Tipo.CASA,
+                    promotor=promotor,
+                    creada_por=request.user,
+                    hora_de_corte=corte or None,
+                )
+            except Exception as error:  # noqa: BLE001
+                messages.error(request, str(error))
+            else:
+                messages.success(request, "Lista creada.")
+            return redirect("web:listas", evento_id=objeto.id)
+
+        if accion == "agregar_invitado":
+            lista_id = (request.POST.get("lista") or "").strip()
+            lista = Lista.objects.filter(pk=lista_id).first() if lista_id else None
+            if lista is None:
+                messages.error(request, "Elegi una lista.")
+                return redirect("web:listas", evento_id=objeto.id)
+            try:
+                personas = int(request.POST.get("personas") or 1)
+            except ValueError:
+                personas = 1
+            try:
+                agregar_invitado(
+                    lista=lista,
+                    nombre=(request.POST.get("nombre") or "").strip(),
+                    personas=personas,
+                    contacto=(request.POST.get("contacto") or "").strip(),
+                )
+            except Exception as error:  # noqa: BLE001
+                messages.error(request, str(error))
+            else:
+                messages.success(request, "Invitado agregado.")
+            return redirect("web:listas", evento_id=objeto.id)
+
+        if accion == "liquidar":
+            liquidaciones = liquidar_comisiones(evento=objeto, usuario=request.user)
+            messages.success(
+                request, f"Comisiones liquidadas: {len(liquidaciones)}."
+            )
+            return redirect("web:listas", evento_id=objeto.id)
+
+        if accion == "aprobar":
+            from apps.ticketing.listas import aprobar_comision
+
+            comision_id = (request.POST.get("comision") or "").strip()
+            comision = (
+                ComisionPromotor.objects.filter(pk=comision_id).first()
+                if comision_id
+                else None
+            )
+            if comision is not None:
+                aprobar_comision(comision=comision, usuario=request.user)
+                messages.success(request, "Comision aprobada.")
+            return redirect("web:listas", evento_id=objeto.id)
+
+        if accion == "pagar":
+            from apps.ticketing.listas import pagar_comision
+
+            comision_id = (request.POST.get("comision") or "").strip()
+            comision = (
+                ComisionPromotor.objects.filter(pk=comision_id).first()
+                if comision_id
+                else None
+            )
+            if comision is not None:
+                try:
+                    pagar_comision(comision=comision, usuario=request.user)
+                except Exception as error:  # noqa: BLE001
+                    messages.error(request, str(error))
+                else:
+                    messages.success(request, "Comision pagada.")
+            return redirect("web:listas", evento_id=objeto.id)
+
+    return render(
+        request,
+        "web/listas.html",
+        {
+            "evento": objeto,
+            "resumen": resumen_de_listas(objeto),
+            "promotores": Promotor.objects.filter(activo=True),
+            "tipos_de_lista": Lista.Tipo.choices,
+            "comisiones": ComisionPromotor.objects.filter(evento=objeto).select_related(
+                "promotor"
+            ),
+        },
+    )
+
+
+def validar_lista(request):
+    """Ingreso por lista desde la puerta."""
+    if not request.user.is_authenticated:
+        return JsonResponse({"ok": False, "mensaje": "No autenticado."}, status=403)
+    if not request.user.tiene_permiso("acceso.validar"):
+        return JsonResponse(
+            {"ok": False, "mensaje": "No tenes permiso para validar accesos."},
+            status=403,
+        )
+
+    from apps.ticketing.models import Evento
+    from apps.ticketing.listas import validar_ingreso_de_lista
+
+    objeto = Evento.objects.filter(pk=request.POST.get("evento")).first()
+    if objeto is None:
+        return JsonResponse({"ok": False, "mensaje": "Elegi un evento."}, status=400)
+
+    forzar = (request.POST.get("forzar") or "") == "1"
+    if forzar and not request.user.tiene_permiso("acceso.forzar"):
+        return JsonResponse(
+            {"ok": False, "mensaje": "No tenes permiso para forzar un ingreso."},
+            status=403,
+        )
+
+    try:
+        personas = int(request.POST.get("personas") or 1)
+    except ValueError:
+        personas = 1
+
+    terminal = Terminal.objects.filter(nombre="Puerta").first()
+    resultado = validar_ingreso_de_lista(
+        evento=objeto,
+        texto=(request.POST.get("texto") or "").strip(),
+        nombre=(request.POST.get("nombre") or "").strip(),
+        personas=personas,
+        terminal=terminal,
+        usuario=request.user,
+        forzar=forzar,
+    )
+    invitado = resultado.get("invitado")
+    return JsonResponse(
+        {
+            "ok": resultado["ok"],
+            "motivo": resultado["motivo"],
+            "mensaje": resultado["mensaje"],
+            "invitado": getattr(invitado, "nombre", None),
+            "aforo_en_vivo": resultado.get("aforo_en_vivo"),
+            "aforo": resultado.get("aforo"),
         }
     )

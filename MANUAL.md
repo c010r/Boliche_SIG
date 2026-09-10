@@ -192,6 +192,32 @@ solo, porque el cálculo de disponibles excluye las que ya pasaron su hora.
 - Si el aforo está completo, deja entrar igual —la entrada es válida— y **avisa en
   pantalla**.
 
+### Listas de invitados y promotores
+
+**Eventos → abrir el evento → Listas y comisiones.**
+
+Se crean listas con **cupo total** y **hora de corte** opcional, y se cargan invitados
+que cubren **1 + acompañantes**. La pantalla de la puerta tiene un campo para buscar por
+nombre (no hace falta que el invitado traiga QR) y el mismo lector de QR sirve: si el
+código no es una entrada, el sistema lo busca entre las invitaciones.
+
+Tres reglas que el sistema aplica solo:
+
+1. **El corte lo aplica el sistema, no el de la puerta.** Si queda a criterio del
+   personal, el criterio es donde se va la plata. El corte se calcula sobre la hora de
+   apertura del evento, así que un corte a la 01:00 con apertura a las 23:00 cae al día
+   siguiente y no en el pasado.
+2. **La atribución se registra al ingresar y no se puede editar.** Un uso de lista no se
+   modifica ni se borra: si el promotor pudiera agregar gente después, todos reclamarían
+   a todos.
+3. **La lista consume aforo.** Los invitados ocupan capacidad, y el aforo es lo que
+   fiscaliza la Intendencia. Si el aforo está completo, el sistema no deja pasar salvo
+   que alguien con el permiso `acceso.forzar` lo autorice, y el ingreso queda marcado.
+
+**Comisiones:** se liquidan por evento y salen de las personas que **quedaron registradas
+en la puerta** por las listas de cada promotor, nunca de lo que declara el promotor. El
+circuito es *calcular → aprobar → pagar*, y cada paso queda con su responsable.
+
 ### Ingreso manual
 
 Invitado, lista, o alguien que pasó sin escanear. **Siempre con motivo.** Es el
@@ -286,8 +312,8 @@ mezclan en la misma sesión.**
 ## 10. Estado del desarrollo
 
 Ver el detalle en [`README.md`](README.md). Resumen: el núcleo de **Fase 1** está
-completo y verificado con **253 tests** más tres verificaciones de punta a punta por
-HTTP (barra y caja, puerta, y compra online).
+completo y verificado con **292 tests** más tres verificaciones de punta a punta por
+HTTP (barra y caja, puerta con listas, y compra online).
 
 **Falta:** la integración real con Mercado Pago (el flujo está completo y probado
 contra un proveedor simulado), listas y promotores con comisión, y modo offline de la

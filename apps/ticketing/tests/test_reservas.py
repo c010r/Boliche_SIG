@@ -19,7 +19,7 @@ from apps.core.context import tenant_context
 from apps.core.provisioning import provisionar_boliche
 from apps.tenancy.models import Local, Tenant
 from apps.ticketing.models import Entrada, Reserva
-from apps.ticketing.pagos import ProveedorSimulado, proveedor_actual
+from apps.pagos.proveedores import ProveedorSimulado, proveedor_actual
 from apps.ticketing.reservas import (
     SinCupo,
     cancelar_reserva,

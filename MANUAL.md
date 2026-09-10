@@ -200,11 +200,44 @@ Para que los estados queden prolijos conviene correr la limpieza cada minuto:
 Sin ese cron **igual no se sobrevende**: el cupo de una reserva vencida se libera
 solo, porque el cálculo de disponibles excluye las que ya pasaron su hora.
 
-> **Mercado Pago NO está integrado todavía.** Lo que existe es el contrato que tiene
-> que implementar (`apps/ticketing/pagos.py`) más un proveedor **simulado** que no
-> cobra nada y sirve para probar y demostrar. Cuando se integre, cada boliche es el
-> comerciante con su propia cuenta (ver `ANALISIS.md` §9 bis), y hay que usar la
-> **Orders API** nueva, no la de QR legacy que está en discontinuación.
+#### Conectar Mercado Pago (lo que falta hacer)
+
+El proveedor real **ya está implementado** contra la **Orders API** de Mercado Pago,
+que es la vigente: la de QR legacy está en discontinuación. Lo que falta es cargar las
+credenciales de cada boliche.
+
+**Cada local cobra en SU cuenta**: el local es el comerciante y asume los contracargos.
+El proveedor del software no es intermediario de pagos.
+
+Pasos, por cada boliche:
+
+1. Crear una aplicación en [Mercado Pago > Tus integraciones](https://www.mercadopago.com.uy/developers/panel/app).
+2. Crear la **sucursal y caja** del local, y anotar su `external_pos_id`.
+3. En **Webhooks**, cargar como URL de producción:
+   `https://<dominio>/api/pagos/webhook/<slug-del-boliche>/` y seleccionar el evento
+   **Order (Mercado Pago)**. Guardar la **clave secreta** que genera.
+4. Cargar en el sistema la credencial del boliche (`CredencialDePago`): proveedor
+   `mercadopago`, `access_token`, `external_pos_id`, `clave_de_firma` y `activo=True`.
+
+> **El slug va en la URL a propósito.** Para validar la firma hay que conocer la clave
+> del boliche **antes** de mirar el cuerpo, y el cuerpo no es confiable hasta que la
+> firma valide.
+
+**Antes de cobrar de verdad, comprobar contra el sandbox**: el proveedor está probado
+con un transporte simulado que verifica el cuerpo y las cabeceras que se envían, y el
+mapeo de estados está tomado de la documentación, pero **no se ejecutó todavía contra
+la API real**. Hay que hacer una compra de prueba.
+
+Detalles que ya están resueltos en el código:
+
+- La orden vence a los **15 minutos** (predeterminado de Mercado Pago) y nuestra reserva
+  vence a los **10**: si el pago se acredita tarde, la reserva ya venció y el sistema lo
+  detecta en vez de sobrevender.
+- La notificación **consulta** la orden; no se confía en el cuerpo.
+- El estado que manda es el de la **transacción**, no el de la orden: una orden
+  procesada con la transacción sin acreditar **no tiene la plata adentro**.
+- Sin clave de firma configurada, el sistema **no valida** y lo avisa: es preferible
+  fallar de forma visible antes que aceptar notificaciones sin verificar.
 
 ### Vender entradas en la puerta
 
@@ -349,9 +382,10 @@ mezclan en la misma sesión.**
 ## 10. Estado del desarrollo
 
 Ver el detalle en [`README.md`](README.md). Resumen: el núcleo de **Fase 1** está
-completo y verificado con **292 tests** más tres verificaciones de punta a punta por
-HTTP (barra y caja, puerta con listas, y compra online).
+completo y verificado con **332 tests**, cuatro verificaciones de punta a punta por
+HTTP (barra y caja, puerta con listas, compra online y barra offline) y el despliegue
+Docker construido y comprobado.
 
-**Falta:** la integración real con Mercado Pago (el flujo está completo y probado
-contra un proveedor simulado), listas y promotores con comisión, y modo offline de la
-barra.
+**Falta:** cargar las credenciales de Mercado Pago de cada boliche y hacer una compra
+de prueba contra su sandbox. El código de la integración está completo y probado sin
+red.

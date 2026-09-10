@@ -39,14 +39,17 @@ En construcción, siguiendo la secuencia de `ANALISIS.md` §15 bis.
 - [x] **Hito 13** — barra **offline**: cola en IndexedDB, service worker, sincronización
       idempotente con precios resueltos por el servidor y versionado del catálogo
 
+- [x] **Hito 14** — proveedor real de **Mercado Pago** contra la Orders API, con
+      credenciales por boliche, validación de firma y mapeo de estados
+
 ## Lo que falta
 
-- **Integración real con Mercado Pago**: el flujo está completo y probado contra un
-  proveedor simulado, con el contrato listo para implementar
+- **Cargar las credenciales** de Mercado Pago de cada boliche y hacer una compra de
+  prueba contra su sandbox: el código está completo y probado sin red
 - Comisión de promotor **sobre el consumo**: hoy sólo se liquida por persona que
   ingresa, que es lo verificable desde el registro de la puerta
 
-**312 tests en verde**, más cuatro verificaciones de punta a punta por HTTP real:
+**332 tests en verde**, más cuatro verificaciones de punta a punta por HTTP real:
 `scripts/verificar_interfaz.py` (barra y caja), `scripts/verificar_puerta.py`
 (venta en puerta, QR, aforo, listas), `scripts/verificar_tienda.py`
 (cartelera pública, reserva, pago y entrega del QR) y `scripts/verificar_offline.py`

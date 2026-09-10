@@ -662,8 +662,8 @@ def tienda_evento(request, slug, evento_id):
 
 def reservar(request, slug, evento_id):
     """Toma el cupo y manda al comprador a pagar."""
+    from apps.pagos.proveedores import proveedor_para
     from apps.ticketing.models import Evento, TipoEntrada
-    from apps.ticketing.pagos import proveedor_actual
 
     boliche = _boliche_o_404(slug)
     if boliche is None:
@@ -696,7 +696,7 @@ def reservar(request, slug, evento_id):
             messages.error(request, str(error))
             return redirect("web:tienda_evento", slug=slug, evento_id=evento_id)
 
-        intento = proveedor_actual().crear_intento(
+        intento = proveedor_para(boliche).crear_intento(
             reserva=reserva,
             url_retorno=request.build_absolute_uri(
                 reverse("web:reserva_pago", args=[reserva.token])
@@ -742,8 +742,8 @@ def reserva_pago(request, token):
 
 def reserva_confirmar(request, token):
     """Vuelta del adquirente. En produccion esto lo dispara el webhook."""
+    from apps.pagos.proveedores import proveedor_para
     from apps.ticketing.models import Reserva
-    from apps.ticketing.pagos import proveedor_actual
 
     reserva = Reserva.unscoped.filter(token=token).select_related("tenant").first()
     if reserva is None:
@@ -755,7 +755,7 @@ def reserva_confirmar(request, token):
     with tenant_context(reserva.tenant):
         reserva = Reserva.objects.select_related("evento", "tipo").get(pk=reserva.pk)
         # .dict() y no dict(): un QueryDict convertido a secas devuelve listas.
-        datos = proveedor_actual().interpretar_webhook(
+        datos = proveedor_para(reserva.tenant).interpretar_webhook(
             payload=request.POST.dict(), cabeceras=dict(request.headers)
         )
         resultado = confirmar_reserva(
@@ -818,33 +818,48 @@ def entrada_publica(request, token):
 
 @csrf_exempt
 @require_POST
-def webhook_de_pago(request):
+def webhook_de_pago(request, slug=None):
     """Notificacion del adquirente.
+
+    Lleva el slug del boliche en la URL a proposito: para validar la firma hay que
+    conocer la clave del boliche ANTES de mirar el cuerpo, y el cuerpo no es
+    confiable hasta que la firma valide. Cada local configura su propia URL.
 
     Es idempotente por diseño: confirmar_reserva devuelve 'ya_confirmada' si el
     pago se notifica dos veces, y el cupo no se toca dos veces.
     """
+    from apps.pagos.proveedores import proveedor_actual, proveedor_para
+    from apps.tenancy.models import Tenant
     from apps.ticketing.models import Reserva
-    from apps.ticketing.pagos import proveedor_actual
 
-    datos = proveedor_actual().interpretar_webhook(
+    boliche = Tenant.objects.filter(slug=slug).first() if slug else None
+    proveedor = proveedor_para(boliche) if boliche else proveedor_actual()
+
+    datos = proveedor.interpretar_webhook(
         payload=request.POST.dict(), cabeceras=dict(request.headers)
     )
     referencia = datos.get("referencia") or ""
     if not referencia:
-        return JsonResponse({"ok": False, "mensaje": "Sin referencia."}, status=400)
+        return JsonResponse(
+            {"ok": False, "mensaje": datos.get("mensaje") or "Sin referencia."},
+            status=400,
+        )
 
-    # El proveedor simulado usa SIM-<token>; un adquirente real mapearia su propio
-    # identificador de pago a la reserva.
+    # La referencia externa es el token de la reserva, para cualquier adquirente.
     buscado = referencia[4:] if referencia.startswith("SIM-") else referencia
-    reserva = Reserva.unscoped.filter(token__startswith=buscado).first()
-    if reserva is None:
-        reserva = Reserva.unscoped.filter(referencia_pago=referencia).first()
+    reserva = (
+        Reserva.unscoped.filter(token=buscado).select_related("tenant").first()
+        or Reserva.unscoped.filter(token__startswith=buscado)
+        .select_related("tenant")
+        .first()
+    )
     if reserva is None:
         return JsonResponse({"ok": False, "mensaje": "Reserva desconocida."}, status=404)
 
     if datos.get("estado") != "aprobado":
-        return JsonResponse({"ok": True, "estado": "ignorado"})
+        return JsonResponse(
+            {"ok": True, "estado": "ignorado", "detalle": datos.get("detalle")}
+        )
 
     with tenant_context(reserva.tenant):
         reserva = Reserva.objects.get(pk=reserva.pk)

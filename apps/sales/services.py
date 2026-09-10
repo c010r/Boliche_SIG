@@ -108,6 +108,7 @@ def registrar_venta(
     descuento: Decimal = Decimal("0"),
     concepto: str = "",
     total_fijo=None,
+    catalogo_version=None,
 ) -> Venta:
     """Registra una venta y descarga el stock por receta.
 
@@ -176,6 +177,21 @@ def registrar_venta(
 
     if not items:
         subtotal = _a_decimal(total_fijo)
+    if catalogo_version is not None:
+        from apps.catalog.version import version_actual
+
+        # La venta entra igual: el cliente ya se fue con su trago. Lo que se
+        # registra es que se cobro con una lista vieja, para que el reporte lo
+        # muestre en vez de esconderlo.
+        try:
+            venta.catalogo_version = int(catalogo_version)
+        except (TypeError, ValueError):
+            venta.catalogo_version = None
+        venta.precio_desactualizado = (
+            venta.catalogo_version is not None
+            and venta.catalogo_version != version_actual(tenant)
+        )
+
     venta.subtotal = subtotal
     venta.total = subtotal - venta.descuento
     venta.full_clean(exclude=["tenant"])

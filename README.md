@@ -36,18 +36,21 @@ En construcción, siguiendo la secuencia de `ANALISIS.md` §15 bis.
 - [x] **Hito 12** — listas de invitados y promotores: corte aplicado por el sistema,
       atribución registrada en la puerta y liquidación de comisiones
 
+- [x] **Hito 13** — barra **offline**: cola en IndexedDB, service worker, sincronización
+      idempotente con precios resueltos por el servidor y versionado del catálogo
+
 ## Lo que falta
 
 - **Integración real con Mercado Pago**: el flujo está completo y probado contra un
   proveedor simulado, con el contrato listo para implementar
-- Modo offline de la barra (Fase 3)
 - Comisión de promotor **sobre el consumo**: hoy sólo se liquida por persona que
   ingresa, que es lo verificable desde el registro de la puerta
 
-**292 tests en verde**, más tres verificaciones de punta a punta por HTTP real:
+**312 tests en verde**, más cuatro verificaciones de punta a punta por HTTP real:
 `scripts/verificar_interfaz.py` (barra y caja), `scripts/verificar_puerta.py`
-(venta en puerta, QR, aforo, listas) y `scripts/verificar_tienda.py`
-(cartelera pública, reserva, pago y entrega del QR). La puerta de la Etapa 0 (aislamiento entre dos tenants) está
+(venta en puerta, QR, aforo, listas), `scripts/verificar_tienda.py`
+(cartelera pública, reserva, pago y entrega del QR) y `scripts/verificar_offline.py`
+(service worker, sincronización idempotente y versionado del catálogo). La puerta de la Etapa 0 (aislamiento entre dos tenants) está
 cumplida y se verifica en cada corrida.
 
 ## Stack
@@ -70,6 +73,8 @@ Estas son las que `ANALISIS.md` marca como caras de cambiar después:
 | Clave de idempotencia en los movimientos de stock | `apps/stock/services.py` |
 | Unidades con magnitud y factor (recetar ml contra stock en botellas) | `apps/catalog/models.py` |
 | Combo ≠ receta: la receta descuenta insumos, el combo agrupa productos | `apps/catalog/models.py` |
+| Precios resueltos **en el servidor**: la terminal nunca manda cuánto sale un trago | `apps/web/api.py` |
+| Versionado del catálogo: una venta cobrada con lista vieja queda marcada | `apps/catalog/version.py` |
 
 ## Puesta en marcha
 

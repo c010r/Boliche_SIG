@@ -124,6 +124,11 @@ class Venta(TenantModel):
     # offline duplica ventas o las ordena mal (seccion 4).
     creada_en_cliente = models.DateTimeField(null=True, blank=True)
     idempotency_key = models.CharField(max_length=160, blank=True)
+    # Version del catalogo que tenia la terminal al vender. Si no coincide con la
+    # del boliche, se cobro con una lista vieja: la venta entra igual, pero queda
+    # marcada para que el reporte lo muestre en vez de esconderlo.
+    catalogo_version = models.PositiveIntegerField(null=True, blank=True)
+    precio_desactualizado = models.BooleanField(default=False)
 
     anulada_en = models.DateTimeField(null=True, blank=True)
     anulada_por = models.ForeignKey(

@@ -12,6 +12,8 @@ urlpatterns = [
     path("barra/anular/<uuid:venta_id>/", views.anular, name="anular"),
     path("caja/", views.caja, name="caja"),
     path("panel/", views.panel, name="panel"),
+    # El service worker va en la raiz para poder controlar /barra/.
+    path("sw.js", views.service_worker, name="service_worker"),
     # Entradas y control de acceso
     path("eventos/", views.eventos, name="eventos"),
     path("eventos/<uuid:evento_id>/", views.evento, name="evento"),

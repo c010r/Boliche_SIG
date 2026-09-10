@@ -184,6 +184,7 @@ def barra(request):
             "categorias": categorias,
             "productos": lista,
             "categoria_actual": categoria_id,
+            "catalogo_version": request.tenant.catalogo_version,
         },
     )
 
@@ -571,6 +572,25 @@ def validar(request):
             "aforo_completo": resultado.get("aforo_completo", False),
         }
     )
+
+
+def service_worker(request):
+    """Sirve el service worker desde la raiz.
+
+    Tiene que estar en /sw.js y no en /static/...: el alcance de un service worker
+    esta limitado a su propia ruta, y desde /static/ no podria controlar /barra/.
+    """
+    from pathlib import Path as _Path
+
+    from django.http import HttpResponse
+
+    ruta = _Path(__file__).resolve().parent / "static" / "web" / "sw.js"
+    respuesta = HttpResponse(
+        ruta.read_text(encoding="utf-8"), content_type="application/javascript"
+    )
+    respuesta["Service-Worker-Allowed"] = "/"
+    respuesta["Cache-Control"] = "no-cache"
+    return respuesta
 
 
 # --- tienda publica -------------------------------------------------------

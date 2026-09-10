@@ -32,6 +32,10 @@ class Tenant(UUIDModel, TimeStampedModel):
     # Dato exigido por la Resolucion DGI 167/021: hay que informar cada emisor
     # electronico que usa la solucion de software (seccion 8).
     rut = models.CharField("RUT", max_length=20, blank=True)
+    # Version del catalogo (productos y precios). La terminal offline manda la
+    # version que tenia cuando vendio: si no coincide con la actual, la venta se
+    # registra igual pero queda marcada, porque se cobro con una lista vieja.
+    catalogo_version = models.PositiveIntegerField(default=1)
     plan = models.CharField(max_length=20, choices=Plan.choices, default=Plan.BASE)
     estado = models.CharField(
         max_length=20, choices=Estado.choices, default=Estado.ACTIVO

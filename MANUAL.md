@@ -129,6 +129,30 @@ Una terminal no puede tener dos cajas abiertas a la vez: el sistema lo impide.
   adquirente confirme: la barra no se traba esperando.
 - El stock se descuenta en el momento, según la receta del producto.
 
+### Si se cae el internet
+
+**La barra sigue vendiendo.** No hay que hacer nada especial: la venta se guarda en la
+tablet y se manda sola cuando vuelve la conexión. El indicador arriba de la botonera
+dice *"Sin conexión: podés seguir vendiendo"* y después *"Enviando N…"*. **Nunca se pone
+en rojo**, a propósito: un cartel de alarma hace que el cantinero deje de confiar y pare
+de vender, que es peor que la caída.
+
+Detalles que conviene saber:
+
+- El **efectivo** se cobra y queda confirmado. Un cobro por **QR o tarjeta** queda
+  **pendiente** hasta que vuelva la red: sin conexión no hay forma de confirmarlo con el
+  adquirente, y fingir que sí sería peor.
+- La tablet manda la **versión de la lista de precios** que tenía. Si cambió mientras
+  estaba sin conexión, la venta entra igual —el cliente ya se llevó su trago— pero queda
+  **marcada** para que el reporte lo muestre.
+- Reintentar la cola **no duplica nada**: cada venta lleva su clave de idempotencia.
+- La pantalla abre sin conexión porque el **service worker** la tiene en caché. Eso
+  **exige HTTPS**: sin TLS el navegador no registra el service worker y la pantalla no
+  abre si se cae la red. Es la misma razón por la que la cámara de la puerta necesita
+  HTTPS.
+- **La puerta no funciona offline, a propósito.** Dos puertas sin conexión aceptarían la
+  misma entrada y el aforo se rompería.
+
 ### Anular
 
 Requiere el permiso `ventas.anular` (el rol **cantinero no lo tiene**). Exige
@@ -264,7 +288,7 @@ de la caja.
 
 | Qué pasa | Qué hacer |
 |---|---|
-| **Se cayó el internet** | Se sigue vendiendo. Los cobros por QR quedan pendientes y se confirman solos cuando vuelve. **No reinicies nada.** |
+| **Se cayó el internet** | Se sigue vendiendo: la tablet guarda y sincroniza sola. Los cobros por QR quedan pendientes. **No reinicies ni cierres la pantalla.** |
 | **No imprime** | Todavía no hay impresión en esta versión: la comanda es la pantalla. |
 | **La tablet se quedó sin batería** | Cambiala por la de repuesto y volvé a ingresar con el mismo número y PIN: la caja sigue abierta. |
 | **No me acuerdo el PIN** | Tres intentos fallidos y el operador queda bloqueado. Lo desbloquea el encargado. |

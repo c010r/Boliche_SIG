@@ -1,7 +1,14 @@
 {% extends "web/base.html" %}
+{% load static %}
 {% block contenido %}
+<span id="datos-barra" hidden data-catalogo-version="{{ catalogo_version }}"></span>
+
 <h1>Barra · {{ sesion.terminal.nombre }}</h1>
-<p class="tenue chico">Caja abierta por {{ sesion.usuario.nombre }} · turno {{ sesion.turno.nombre }}</p>
+<p class="tenue chico">
+  Caja abierta por {{ sesion.usuario.nombre }} · turno {{ sesion.turno.nombre }}
+  · <span id="estado-conexion" class="chico pos">Todo al dia</span>
+</p>
+<p id="aviso-venta" style="min-height:1.4rem;"></p>
 
 <div class="tabs">
   <a href="{% url 'web:barra' %}" class="{% if not categoria_actual %}activo{% endif %}">Todos</a>
@@ -36,30 +43,7 @@
 
 <form method="post" id="f-cobro" hidden>
   {% csrf_token %}
-  <input type="hidden" name="producto" id="f-producto">
-  <input type="hidden" name="medio" id="f-medio">
 </form>
 
-<script>
-  var seleccionado = null;
-  var botones = document.querySelectorAll('[data-producto]');
-  for (var i = 0; i < botones.length; i++) {
-    botones[i].addEventListener('click', function (ev) {
-      seleccionado = ev.currentTarget.dataset.producto;
-      document.getElementById('pd').textContent =
-        ev.currentTarget.dataset.nombre + '  ·  $ ' + ev.currentTarget.dataset.precio;
-      document.getElementById('pago').hidden = false;
-    });
-  }
-  function cobrar(medio) {
-    if (!seleccionado) { return; }
-    document.getElementById('f-producto').value = seleccionado;
-    document.getElementById('f-medio').value = medio;
-    document.getElementById('f-cobro').submit();
-  }
-  function cancelar() {
-    seleccionado = null;
-    document.getElementById('pago').hidden = true;
-  }
-</script>
+<script src="{% static 'web/barra.js' %}" defer></script>
 {% endblock %}

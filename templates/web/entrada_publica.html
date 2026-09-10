@@ -1,0 +1,36 @@
+{% extends "web/base.html" %}
+{% block titulo %}Tu entrada{% endblock %}
+{% block contenido %}
+<h1>Tu entrada</h1>
+
+<div class="panel" style="text-align:center;">
+  {% if entrada.estado == 'usada' %}
+    <p class="aviso"><strong>Esta entrada ya fue usada.</strong></p>
+  {% elif entrada.estado == 'anulada' %}
+    <p style="color:var(--alerta);"><strong>Esta entrada esta anulada.</strong></p>
+  {% endif %}
+  <p><strong>{{ entrada.tipo.nombre }}</strong></p>
+  <p class="tenue">{{ entrada.evento.nombre }} · {{ entrada.evento.fecha }}</p>
+  <div style="background:#fff; padding:1rem; border-radius:.7rem; display:inline-block; margin:1rem 0;">
+    {{ qr|safe }}
+  </div>
+  <p class="tenue chico">Mostrala en la puerta. Se usa una sola vez.</p>
+</div>
+
+{% if hermanas %}
+<div class="panel">
+  <h2 style="margin-top:0;">Las otras entradas de esta compra</h2>
+  <table>
+    <tr><th>Folio</th><th>Tipo</th><th>Estado</th><th></th></tr>
+    {% for h in hermanas %}
+    <tr>
+      <td>{{ h.folio }}</td>
+      <td>{{ h.tipo.nombre }}</td>
+      <td>{{ h.get_estado_display }}</td>
+      <td class="num"><a href="{% url 'web:entrada_publica' h.qr_token %}">Ver QR</a></td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
+{% endblock %}

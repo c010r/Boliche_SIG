@@ -20,4 +20,11 @@ urlpatterns = [
     path("puerta/", views.puerta, name="puerta"),
     path("puerta/<uuid:evento_id>/", views.puerta, name="puerta_evento"),
     path("validar/", views.validar, name="validar"),
+    # Tienda publica (anonima: el boliche sale del slug)
+    path("tienda/<slug:slug>/", views.tienda, name="tienda"),
+    path("tienda/<slug:slug>/<uuid:evento_id>/", views.tienda_evento, name="tienda_evento"),
+    path("tienda/<slug:slug>/<uuid:evento_id>/reservar/", views.reservar, name="reservar"),
+    path("reserva/<str:token>/", views.reserva_pago, name="reserva_pago"),
+    path("reserva/<str:token>/confirmar/", views.reserva_confirmar, name="reserva_confirmar"),
+    path("entrada/<str:token>/", views.entrada_publica, name="entrada_publica"),
 ]

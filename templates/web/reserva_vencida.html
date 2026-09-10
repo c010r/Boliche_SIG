@@ -1,0 +1,14 @@
+{% extends "web/base.html" %}
+{% block titulo %}Reserva vencida{% endblock %}
+{% block contenido %}
+<h1>La reserva vencio antes del pago</h1>
+<div class="panel">
+  <p>El pago se acredito tarde y el lugar ya se libero.</p>
+  <p><strong>Se te va a devolver el dinero.</strong></p>
+  <p class="tenue chico">
+    El sistema no sobrevende el aforo "para que funcione": prefiere devolverte el
+    pago antes que dejar entrar gente de mas.
+  </p>
+  <a class="boton accion" style="display:block; text-decoration:none; text-align:center;" href="{% url 'web:tienda' boliche.slug %}">Ver otros eventos</a>
+</div>
+{% endblock %}

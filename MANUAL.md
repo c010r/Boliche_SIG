@@ -135,6 +135,40 @@ Requiere el permiso `ventas.anular` (el rol **cantinero no lo tiene**). Exige
 motivo y **no borra nada**: queda la venta anulada, quién la anuló y el
 movimiento contrario en el stock.
 
+### Vender entradas online (preventa)
+
+La tienda pública está en **`/tienda/<slug-del-boliche>/`** y **no requiere cuenta**:
+el comprador elige el evento, la cantidad y paga.
+
+El sistema funciona con el patrón de **reserva con expiración**, que es lo que evita
+sobrevender:
+
+1. **Reserva:** se le toma el cupo al comprador durante unos minutos (10 por defecto).
+2. **Pago:** el comprador paga en ese plazo, con un reloj en pantalla.
+3. **Confirmación:** recién ahí se emiten las entradas y se le muestra el QR.
+4. **Expiración:** si no paga, el lugar se libera solo.
+
+**Si el pago se acredita después de que la reserva venció, el sistema NO emite la
+entrada**: marca el pago como tardío, le avisa al comprador y hay que devolverle el
+dinero. Prefiere devolver un pago antes que sobrevender el aforo.
+
+Configuración: `RESERVA_MINUTOS_DE_VALIDEZ` en el `.env`.
+
+Para que los estados queden prolijos conviene correr la limpieza cada minuto:
+
+```bash
+* * * * * cd /ruta/al/proyecto && python manage.py expirar_reservas
+```
+
+Sin ese cron **igual no se sobrevende**: el cupo de una reserva vencida se libera
+solo, porque el cálculo de disponibles excluye las que ya pasaron su hora.
+
+> **Mercado Pago NO está integrado todavía.** Lo que existe es el contrato que tiene
+> que implementar (`apps/ticketing/pagos.py`) más un proveedor **simulado** que no
+> cobra nada y sirve para probar y demostrar. Cuando se integre, cada boliche es el
+> comerciante con su propia cuenta (ver `ANALISIS.md` §9 bis), y hay que usar la
+> **Orders API** nueva, no la de QR legacy que está en discontinuación.
+
 ### Vender entradas en la puerta
 
 1. **Eventos → abrir el evento → elegir tipo y cantidad → Emitir y cobrar.** Si hay
@@ -210,6 +244,7 @@ de la caja.
 | **No me acuerdo el PIN** | Tres intentos fallidos y el operador queda bloqueado. Lo desbloquea el encargado. |
 | **Cobré mal y ya cerré la venta** | Se anula con motivo. Queda registrado; no se borra. |
 | **La caja no me cierra** | Escribí lo que contaste. Si hay diferencia, la autoriza el encargado con su número. **No ajustes los números para que den.** |
+| **El comprador pagó y la reserva venció** | El sistema le avisa y hay que devolverle el pago. **No se lo hace entrar por arriba del aforo**: es la capacidad que fiscaliza la Intendencia. |
 | **El QR no lee** | Usá el campo de código a mano: el token está en la pantalla del comprador. Si tampoco, ingreso manual con motivo. |
 | **La entrada ya figura usada y el cliente protesta** | Está cumpliendo su función: alguien la usó antes. No hay forma de "reusarla"; si hay que dejarlo pasar, es ingreso manual con motivo. |
 | **Se cayó el servidor** | Avisar al proveedor. El local necesita su talonario de **comprobantes de contingencia** en papel (obligación del local, ver §8). |
@@ -251,7 +286,9 @@ mezclan en la misma sesión.**
 ## 10. Estado del desarrollo
 
 Ver el detalle en [`README.md`](README.md). Resumen: el núcleo de **Fase 1** está
-completo y verificado con **207 tests** más dos verificaciones de punta a punta por HTTP.
+completo y verificado con **253 tests** más tres verificaciones de punta a punta por
+HTTP (barra y caja, puerta, y compra online).
 
-**Falta:** venta online de entradas (la de puerta ya está), listas y promotores con
-comisión, y modo offline de la barra.
+**Falta:** la integración real con Mercado Pago (el flujo está completo y probado
+contra un proveedor simulado), listas y promotores con comisión, y modo offline de la
+barra.

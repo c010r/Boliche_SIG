@@ -142,6 +142,15 @@ class Entrada(TenantModel):
         blank=True,
         related_name="entradas",
     )
+    # Compra online: agrupa las entradas de una misma reserva, para que quien
+    # compro cuatro vea las cuatro y no solo una.
+    reserva = models.ForeignKey(
+        "ticketing.Reserva",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="entradas",
+    )
     usada_en = models.DateTimeField(null=True, blank=True)
     usada_en_terminal = models.ForeignKey(
         "tenancy.Terminal",
@@ -266,3 +275,62 @@ class MovimientoAforo(TenantModel):
         raise ValidationError(
             "Los movimientos de aforo no se borran: se asienta el contrario."
         )
+
+
+class Reserva(TenantModel):
+    """Cupo tomado mientras el comprador paga, con vencimiento.
+
+    Es el patron que evita la sobreventa: primero se RESERVA de forma atomica,
+    despues se cobra, y recien ahi se emite la entrada. Vender "consultando si hay
+    lugar y despues cobrando" sobrevende; cobrar primero y asignar despues termina
+    en reembolsos.
+
+    Referencia: ANALISIS.md seccion 9 bis.
+    """
+
+    class Estado(models.TextChoices):
+        ACTIVA = "activa", "Activa"
+        CONFIRMADA = "confirmada", "Confirmada"
+        EXPIRADA = "expirada", "Expirada"
+        CANCELADA = "cancelada", "Cancelada"
+
+    evento = models.ForeignKey(
+        Evento, on_delete=models.PROTECT, related_name="reservas"
+    )
+    tipo = models.ForeignKey(
+        TipoEntrada, on_delete=models.PROTECT, related_name="reservas"
+    )
+    cantidad = models.PositiveIntegerField(default=1)
+    comprador_nombre = models.CharField(max_length=150, blank=True)
+    comprador_contacto = models.CharField(max_length=120, blank=True)
+    estado = models.CharField(
+        max_length=16, choices=Estado.choices, default=Estado.ACTIVA
+    )
+    token = models.CharField(max_length=64, unique=True, default=generar_token)
+    expira_en = models.DateTimeField()
+    confirmada_en = models.DateTimeField(null=True, blank=True)
+
+    referencia_pago = models.CharField(max_length=120, blank=True)
+    medio_pago = models.CharField(max_length=20, blank=True)
+    pagado_en = models.DateTimeField(null=True, blank=True)
+    # Un pago puede aprobarse DESPUES de que la reserva vencio. Se registra, se
+    # devuelve y se avisa: nunca se sobrevende "para que funcione".
+    pago_tardio = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = "Reserva"
+        verbose_name_plural = "Reservas"
+        ordering = ["-creado_en"]
+        indexes = [
+            models.Index(fields=["tenant", "estado", "expira_en"]),
+            models.Index(fields=["tenant", "token"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"Reserva {self.cantidad} x {self.tipo.nombre} ({self.estado})"
+
+    @property
+    def vencida(self) -> bool:
+        from django.utils import timezone as _tz
+
+        return self.estado == self.Estado.ACTIVA and self.expira_en <= _tz.now()

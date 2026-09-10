@@ -150,3 +150,9 @@ PIN_BLOQUEO_MINUTOS = int(os.getenv("PIN_BLOQUEO_MINUTOS", "15"))
 # Un ajuste de inventario que supera este valor (en moneda local) exige un
 # autorizante distinto de quien conto (seccion 11 ter).
 AJUSTE_UMBRAL_AUTORIZACION = os.getenv("AJUSTE_UMBRAL_AUTORIZACION", "500")
+
+# Reserva de entradas: minutos que se le toma el cupo al comprador mientras paga.
+RESERVA_MINUTOS_DE_VALIDEZ = int(os.getenv("RESERVA_MINUTOS_DE_VALIDEZ", "10"))
+
+# Proveedor de pago. Hoy solo existe "simulado": Mercado Pago NO esta integrado.
+PROVEEDOR_DE_PAGO = os.getenv("PROVEEDOR_DE_PAGO", "simulado")

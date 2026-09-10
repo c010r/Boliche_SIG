@@ -1,0 +1,32 @@
+{% extends "web/base.html" %}
+{% block titulo %}{{ boliche.nombre }} · Entradas{% endblock %}
+{% block contenido %}
+<h1>{{ boliche.nombre }}</h1>
+<p class="tenue">Entradas anticipadas</p>
+
+{% for fila in cartel %}
+<div class="panel">
+  <h2 style="margin-top:0; color:var(--texto); text-transform:none; letter-spacing:0;">{{ fila.evento.nombre }}</h2>
+  <p class="tenue">{{ fila.evento.fecha }}{% if fila.evento.hora_apertura %} · abre {{ fila.evento.hora_apertura|time:"H:i" }}{% endif %}</p>
+  <table>
+    <tr><th>Tipo</th><th class="num">Precio</th><th class="num">Quedan</th><th></th></tr>
+    {% for t in fila.tipos %}
+    <tr>
+      <td>{{ t.tipo.nombre }}</td>
+      <td class="num">$ {{ t.tipo.precio }}</td>
+      <td class="num">{{ t.disponibles }}</td>
+      <td class="num">
+        {% if t.disponibles %}
+          <a href="{% url 'web:tienda_evento' boliche.slug fila.evento.id %}">Comprar</a>
+        {% else %}
+          <span class="tenue">Agotado</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% empty %}
+<div class="panel"><p class="tenue">Todavia no hay eventos publicados.</p></div>
+{% endfor %}
+{% endblock %}

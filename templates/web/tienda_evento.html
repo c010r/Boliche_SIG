@@ -1,0 +1,35 @@
+{% extends "web/base.html" %}
+{% block titulo %}{{ evento.nombre }}{% endblock %}
+{% block contenido %}
+<h1>{{ evento.nombre }}</h1>
+<p class="tenue">{{ evento.fecha }}{% if evento.hora_apertura %} · abre {{ evento.hora_apertura|time:"H:i" }}{% endif %}</p>
+
+{% if messages %}{% for m in messages %}<ul class="mensajes"><li class="{{ m.tags }}">{{ m }}</li></ul>{% endfor %}{% endif %}
+
+<div class="panel">
+  <form method="post" action="{% url 'web:reservar' boliche.slug evento.id %}">
+    {% csrf_token %}
+    <label for="tipo">Entrada</label>
+    <select id="tipo" name="tipo">
+      {% for t in tipos %}
+        <option value="{{ t.tipo.id }}" {% if not t.disponibles %}disabled{% endif %}>
+          {{ t.tipo.nombre }} · $ {{ t.tipo.precio }} · quedan {{ t.disponibles }}
+        </option>
+      {% endfor %}
+    </select>
+    <label for="cantidad">Cantidad</label>
+    <input id="cantidad" name="cantidad" value="1" inputmode="numeric">
+    <label for="nombre">Tu nombre</label>
+    <input id="nombre" name="nombre" autocomplete="name">
+    <label for="contacto">Telefono o email</label>
+    <input id="contacto" name="contacto" autocomplete="email">
+    <div style="margin-top:1.2rem;">
+      <button class="accion" type="submit">Reservar y pagar</button>
+    </div>
+  </form>
+  <p class="tenue chico" style="margin-top:.8rem;">
+    Al reservar se te toma el lugar durante unos minutos para que pagues.
+    Si no se acredita, el lugar se libera solo.
+  </p>
+</div>
+{% endblock %}

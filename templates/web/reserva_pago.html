@@ -1,0 +1,49 @@
+{% extends "web/base.html" %}
+{% block titulo %}Pagar la reserva{% endblock %}
+{% block contenido %}
+<h1>Pagar</h1>
+
+{% if reserva.estado == 'activa' %}
+<div class="panel" style="text-align:center;">
+  <p><strong>{{ reserva.cantidad }} x {{ reserva.tipo.nombre }}</strong></p>
+  <p class="tenue">{{ reserva.evento.nombre }} · {{ reserva.evento.fecha }}</p>
+  <p style="font-size:1.5rem; font-weight:700;">$ {{ reserva.tipo.precio }}</p>
+  <p class="tenue chico">Referencia: {{ reserva.referencia_pago|default:"-" }}</p>
+  <p class="aviso" id="reloj">Tu lugar esta guardado por {{ segundos_restantes }} segundos.</p>
+
+  <form method="post" action="{% url 'web:reserva_confirmar' reserva.token %}">
+    {% csrf_token %}
+    <input type="hidden" name="referencia" value="{{ reserva.referencia_pago }}">
+    <input type="hidden" name="estado" value="aprobado">
+    <div style="margin-top:1rem;">
+      <button class="accion" type="submit">Pagar y confirmar</button>
+    </div>
+  </form>
+  <p class="tenue chico" style="margin-top:1rem;">
+    Modo de prueba: Mercado Pago todavia no esta integrado. Este boton simula la
+    notificacion de pago que en produccion manda el adquirente.
+  </p>
+</div>
+{% elif reserva.estado == 'confirmada' %}
+<div class="panel"><p>Esta reserva ya esta paga.</p></div>
+{% else %}
+<div class="panel">
+  <p class="aviso">Esta reserva ya no esta activa ({{ reserva.get_estado_display|lower }}).</p>
+  <a class="boton accion" style="display:block; text-decoration:none; text-align:center;" href="{% url 'web:tienda' boliche.slug %}">Ver otros eventos</a>
+</div>
+{% endif %}
+
+<script>
+  var restantes = {{ segundos_restantes }};
+  function tic() {
+    if (restantes <= 0) { location.reload(); return; }
+    restantes = restantes - 1;
+    var el = document.getElementById('reloj');
+    if (el) {
+      el.textContent = 'Tu lugar esta guardado por ' + restantes + ' segundos.';
+    }
+    setTimeout(tic, 1000);
+  }
+  if (restantes > 0) { setTimeout(tic, 1000); }
+</script>
+{% endblock %}

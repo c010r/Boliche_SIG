@@ -31,19 +31,20 @@ En construcción, siguiendo la secuencia de `ANALISIS.md` §15 bis.
 
 - [x] **Hito 10** — entradas: eventos y tipos con cupo, QR de un solo uso,
       validación en puerta con aviso de aforo y ledger de aforo append-only
+- [x] **Hito 11** — venta online: tienda pública sin cuenta, **reserva con expiración**,
+      webhook de pago idempotente y entrega del QR
 
 ## Lo que falta
 
-**El MVP del plan está prácticamente completo.** Queda:
-
-- Venta **online** de entradas (la venta en puerta ya está): tienda pública,
-  reserva con expiración y webhook de pago
+- **Integración real con Mercado Pago**: el flujo está completo y probado contra un
+  proveedor simulado, con el contrato listo para implementar
 - Listas y promotores con comisión
 - Modo offline de la barra (Fase 3)
 
-**207 tests en verde**, más dos verificaciones de punta a punta por HTTP real:
-`scripts/verificar_interfaz.py` (barra y caja) y `scripts/verificar_puerta.py`
-(venta de entradas, QR, validación y aforo). La puerta de la Etapa 0 (aislamiento entre dos tenants) está
+**253 tests en verde**, más tres verificaciones de punta a punta por HTTP real:
+`scripts/verificar_interfaz.py` (barra y caja), `scripts/verificar_puerta.py`
+(venta en puerta, QR, validación y aforo) y `scripts/verificar_tienda.py`
+(cartelera pública, reserva, pago y entrega del QR). La puerta de la Etapa 0 (aislamiento entre dos tenants) está
 cumplida y se verifica en cada corrida.
 
 ## Stack

@@ -20,9 +20,13 @@ from django.contrib.auth import logout as auth_logout
 from django.db.models import Count, Sum
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
+from django.urls import reverse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
 from django.utils import timezone
 
 from apps.accounts.models import Usuario
+from apps.core.context import tenant_context
 from apps.catalog.models import CategoriaProducto, Producto
 from apps.sales.models import Pago, SesionCaja, Turno, Venta
 from apps.sales.services import (
@@ -36,6 +40,12 @@ from apps.sales.services import (
     resumen_de_ventas,
 )
 from apps.stock.reportes import reporte_de_varianza
+from apps.ticketing.reservas import (
+    confirmar_reserva,
+    crear_reserva,
+    disponibles_de_tipo,
+)
+from apps.ticketing.services import qr_svg
 from apps.tenancy.models import Terminal
 
 
@@ -551,5 +561,274 @@ def validar(request):
             "aforo_en_vivo": resultado.get("aforo_en_vivo"),
             "aforo": resultado.get("aforo"),
             "aforo_completo": resultado.get("aforo_completo", False),
+        }
+    )
+
+
+# --- tienda publica -------------------------------------------------------
+#
+# Estas vistas son ANONIMAS: el tenant no sale de la sesion sino del slug de la
+# URL. Es el unico lugar del sistema donde se entra sin autenticacion, asi que
+# cada una abre el contexto del boliche a mano y lo cierra al salir.
+
+
+def _boliche_o_404(slug):
+    from apps.tenancy.models import Tenant
+
+    return Tenant.objects.filter(slug=slug, estado=Tenant.Estado.ACTIVO).first()
+
+
+def tienda(request, slug):
+    """Cartelera publica del boliche."""
+    from apps.ticketing.models import Evento
+
+    boliche = _boliche_o_404(slug)
+    if boliche is None:
+        return render(request, "web/tienda_404.html", status=404)
+
+    with tenant_context(boliche):
+        eventos = list(
+            Evento.objects.filter(estado=Evento.Estado.PUBLICADO)
+            .prefetch_related("tipos")
+            .order_by("fecha")
+        )
+        cartel = []
+        for evento in eventos:
+            cartel.append(
+                {
+                    "evento": evento,
+                    "tipos": [
+                        {"tipo": t, "disponibles": disponibles_de_tipo(t)}
+                        for t in evento.tipos.all()
+                    ],
+                }
+            )
+
+    return render(request, "web/tienda.html", {"boliche": boliche, "cartel": cartel})
+
+
+def tienda_evento(request, slug, evento_id):
+    from apps.ticketing.models import Evento
+
+    boliche = _boliche_o_404(slug)
+    if boliche is None:
+        return render(request, "web/tienda_404.html", status=404)
+
+    with tenant_context(boliche):
+        evento = Evento.objects.filter(
+            pk=evento_id, estado=Evento.Estado.PUBLICADO
+        ).first()
+        if evento is None:
+            return render(request, "web/tienda_404.html", status=404)
+
+        tipos = [
+            {"tipo": t, "disponibles": disponibles_de_tipo(t)}
+            for t in evento.tipos.all()
+        ]
+        return render(
+            request,
+            "web/tienda_evento.html",
+            {"boliche": boliche, "evento": evento, "tipos": tipos},
+        )
+
+
+def reservar(request, slug, evento_id):
+    """Toma el cupo y manda al comprador a pagar."""
+    from apps.ticketing.models import Evento, TipoEntrada
+    from apps.ticketing.pagos import proveedor_actual
+
+    boliche = _boliche_o_404(slug)
+    if boliche is None:
+        return render(request, "web/tienda_404.html", status=404)
+    if request.method != "POST":
+        return redirect("web:tienda_evento", slug=slug, evento_id=evento_id)
+
+    with tenant_context(boliche):
+        evento = Evento.objects.filter(pk=evento_id).first()
+        tipo = TipoEntrada.objects.filter(
+            pk=request.POST.get("tipo"), evento=evento
+        ).first()
+        if tipo is None:
+            messages.error(request, "Elegi un tipo de entrada.")
+            return redirect("web:tienda_evento", slug=slug, evento_id=evento_id)
+
+        try:
+            cantidad = int(request.POST.get("cantidad") or 1)
+        except ValueError:
+            cantidad = 1
+
+        try:
+            reserva = crear_reserva(
+                tipo=tipo,
+                cantidad=cantidad,
+                comprador_nombre=(request.POST.get("nombre") or "").strip(),
+                comprador_contacto=(request.POST.get("contacto") or "").strip(),
+            )
+        except Exception as error:  # noqa: BLE001 - se le muestra al comprador
+            messages.error(request, str(error))
+            return redirect("web:tienda_evento", slug=slug, evento_id=evento_id)
+
+        intento = proveedor_actual().crear_intento(
+            reserva=reserva,
+            url_retorno=request.build_absolute_uri(
+                reverse("web:reserva_pago", args=[reserva.token])
+            ),
+        )
+        reserva.referencia_pago = intento["referencia"]
+        reserva.save(update_fields=["referencia_pago", "actualizado_en"])
+        token = reserva.token
+
+    return redirect("web:reserva_pago", token=token)
+
+
+def reserva_pago(request, token):
+    """Pantalla de pago de una reserva.
+
+    El cupo queda tomado mientras el comprador paga. El reloj corre: el sistema
+    dice cuanto falta.
+    """
+    from apps.ticketing.models import Reserva
+
+    # Vista anonima: el token es lo unico que identifica al boliche. Por eso se
+    # busca con unscoped y recien despues se abre el contexto.
+    reserva = Reserva.unscoped.filter(token=token).select_related(
+        "evento", "tipo", "tenant"
+    ).first()
+    if reserva is None:
+        return render(request, "web/tienda_404.html", status=404)
+
+    with tenant_context(reserva.tenant):
+        reserva = Reserva.objects.select_related("evento", "tipo").get(pk=reserva.pk)
+        return render(
+            request,
+            "web/reserva_pago.html",
+            {
+                "reserva": reserva,
+                "boliche": reserva.tenant,
+                "segundos_restantes": max(
+                    0, int((reserva.expira_en - timezone.now()).total_seconds())
+                ),
+            },
+        )
+
+
+def reserva_confirmar(request, token):
+    """Vuelta del adquirente. En produccion esto lo dispara el webhook."""
+    from apps.ticketing.models import Reserva
+    from apps.ticketing.pagos import proveedor_actual
+
+    reserva = Reserva.unscoped.filter(token=token).select_related("tenant").first()
+    if reserva is None:
+        return render(request, "web/tienda_404.html", status=404)
+
+    if request.method != "POST":
+        return redirect("web:reserva_pago", token=token)
+
+    with tenant_context(reserva.tenant):
+        reserva = Reserva.objects.select_related("evento", "tipo").get(pk=reserva.pk)
+        # .dict() y no dict(): un QueryDict convertido a secas devuelve listas.
+        datos = proveedor_actual().interpretar_webhook(
+            payload=request.POST.dict(), cabeceras=dict(request.headers)
+        )
+        resultado = confirmar_reserva(
+            reserva=reserva,
+            referencia_pago=datos.get("referencia") or reserva.referencia_pago,
+            medio=datos.get("medio") or "simulado",
+        )
+        if resultado["estado"] == "pago_tardio":
+            return render(
+                request,
+                "web/reserva_vencida.html",
+                {"reserva": reserva, "boliche": reserva.tenant},
+            )
+        entradas = resultado["entradas"]
+        primer_token = entradas[0].qr_token if entradas else None
+
+    if primer_token:
+        return redirect("web:entrada_publica", token=primer_token)
+    return redirect("web:tienda", slug=reserva.tenant.slug)
+
+
+def entrada_publica(request, token):
+    """La entrada, para que el comprador la muestre en la puerta.
+
+    Es un titulo al portador: quien tiene el token, entra. En la puerta se
+    consume una sola vez, asi que reenviarlo no sirve dos veces.
+    """
+    from apps.ticketing.models import Entrada
+
+    # Igual que la reserva: anonima, se resuelve por token y despues se abre el
+    # contexto del boliche.
+    entrada = Entrada.unscoped.filter(qr_token=token).select_related(
+        "evento", "tipo", "tenant"
+    ).first()
+    if entrada is None:
+        return render(request, "web/tienda_404.html", status=404)
+
+    with tenant_context(entrada.tenant):
+        entrada = Entrada.objects.select_related("evento", "tipo").get(pk=entrada.pk)
+        # Si la compra fue de varias entradas, se muestran todas: quien compro
+        # cuatro tiene que poder mostrar las cuatro.
+        hermanas = []
+        if entrada.reserva_id:
+            hermanas = list(
+                Entrada.objects.filter(reserva_id=entrada.reserva_id)
+                .exclude(pk=entrada.pk)
+                .select_related("tipo")
+            )
+        return render(
+            request,
+            "web/entrada_publica.html",
+            {
+                "entrada": entrada,
+                "hermanas": hermanas,
+                "boliche": entrada.tenant,
+                "qr": qr_svg(entrada),
+            },
+        )
+
+
+@csrf_exempt
+@require_POST
+def webhook_de_pago(request):
+    """Notificacion del adquirente.
+
+    Es idempotente por diseño: confirmar_reserva devuelve 'ya_confirmada' si el
+    pago se notifica dos veces, y el cupo no se toca dos veces.
+    """
+    from apps.ticketing.models import Reserva
+    from apps.ticketing.pagos import proveedor_actual
+
+    datos = proveedor_actual().interpretar_webhook(
+        payload=request.POST.dict(), cabeceras=dict(request.headers)
+    )
+    referencia = datos.get("referencia") or ""
+    if not referencia:
+        return JsonResponse({"ok": False, "mensaje": "Sin referencia."}, status=400)
+
+    # El proveedor simulado usa SIM-<token>; un adquirente real mapearia su propio
+    # identificador de pago a la reserva.
+    buscado = referencia[4:] if referencia.startswith("SIM-") else referencia
+    reserva = Reserva.unscoped.filter(token__startswith=buscado).first()
+    if reserva is None:
+        reserva = Reserva.unscoped.filter(referencia_pago=referencia).first()
+    if reserva is None:
+        return JsonResponse({"ok": False, "mensaje": "Reserva desconocida."}, status=404)
+
+    if datos.get("estado") != "aprobado":
+        return JsonResponse({"ok": True, "estado": "ignorado"})
+
+    with tenant_context(reserva.tenant):
+        reserva = Reserva.objects.get(pk=reserva.pk)
+        resultado = confirmar_reserva(
+            reserva=reserva, referencia_pago=referencia, medio=datos.get("medio") or ""
+        )
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "estado": resultado["estado"],
+            "mensaje": resultado["mensaje"],
+            "entradas": [e.qr_token for e in resultado["entradas"]],
         }
     )

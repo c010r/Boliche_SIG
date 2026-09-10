@@ -22,11 +22,12 @@ En construcción, siguiendo la secuencia de `ANALISIS.md` §15 bis.
       con contra-asiento y arqueo por medio de pago
 - [x] **Hito 6** — conteo guiado ciego, ajuste de inventario con autorizante y
       reporte de varianza ordenado por impacto en plata
-- [ ] **Hito 7** — alta de un boliche (provisioning) y datos de demostración
+- [x] **Hito 7** — alta de un boliche en un comando, con plantilla del vertical y
+      una noche de demostración completa
 - [ ] **Hito 8** — interfaz web: ingreso por PIN, barra en 3 toques, cierre y panel del dueño
 - [ ] **Hito 9** — despliegue con Docker y manual de instalación
 
-**123 tests en verde.** La puerta de la Etapa 0 (aislamiento entre dos tenants) está
+**140 tests en verde.** La puerta de la Etapa 0 (aislamiento entre dos tenants) está
 cumplida y se verifica en cada corrida.
 
 ## Stack
@@ -72,6 +73,26 @@ python manage.py runserver
 ```
 
 Chequeo de salud: `GET /api/health/`.
+
+### Dar de alta un boliche
+
+```bash
+python manage.py provisionar_boliche --nombre "Boliche Nuevo" --slug nuevo --rut 210000000000
+```
+
+Deja el local operativo: puntos de stock (Deposito, Barra 1, Barra 2, Puerta), una
+terminal por punto, los siete roles con sus permisos, el usuario dueño con PIN y la
+plantilla del vertical (unidades, insumos con presentaciones, tragos con receta y combos).
+
+### Ver el sistema funcionando en un minuto
+
+```bash
+python manage.py demo
+```
+
+Crea un boliche de demostración y simula una noche entera —carga de stock, venta,
+cierre de caja y conteo ciego— y termina imprimiendo el **reporte de varianza**: qué
+insumo se fue, cuánto costó y en cuánto tiempo se contó.
 
 ## Prueba manual del aislamiento
 

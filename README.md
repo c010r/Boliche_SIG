@@ -4,33 +4,74 @@ Sistema de gestión para pubs y discotecas: **barra/POS, control de acceso y ges
 multi-tenant, para el mercado uruguayo.
 
 El diseño completo —decisiones, por qué, y qué se descartó— está en
-[`ANALISIS.md`](ANALISIS.md). Ese documento es la fuente de verdad del proyecto:
-si el código y el análisis se contradicen, hay que resolver la contradicción, no ignorarla.
+[`ANALISIS.md`](ANALISIS.md). Ese documento es la fuente de verdad del proyecto: si el
+código y el análisis se contradicen, hay que resolver la contradicción, no ignorarla.
 
 ## Estado
 
-En construcción. Secuencia de hitos en `ANALISIS.md` §15 bis.
+En construcción, siguiendo la secuencia de `ANALISIS.md` §15 bis.
 
-- [x] **Hito 1** — esqueleto del proyecto (Django + DRF + PostgreSQL)
-- [ ] **Hito 2** — multi-tenancy *fail-closed* con tests de aislamiento
-- [ ] **Hito 3** — auth por PIN, roles/permisos y auditoría
-- [ ] **Hito 4** — catálogo con unidades/conversión y ledger de stock append-only
+- [x] **Hito 1** — esqueleto Django + DRF + PostgreSQL, y **multi-tenancy fail-closed**
+      con batería de aislamiento entre boliches
+- [x] **Hito 2** — usuarios con doble credencial (email+password / número+PIN), roles,
+      permisos, membresía usuario×local×rol y auditoría
+- [x] **Hito 3** — catálogo: unidades con magnitud y factor, insumos, presentaciones,
+      productos, recetas con merma y combos
+- [x] **Hito 4** — depósitos por punto, **ledger de stock append-only** y saldo proyectado
 - [ ] **Hito 5** — caja y ventas con invariantes
+
+**67 tests en verde.** La puerta de la Etapa 0 (aislamiento entre dos tenants) está
+cumplida y se verifica en cada corrida.
 
 ## Stack
 
-Django + Django REST Framework + PostgreSQL. La decisión de no sumar un segundo runtime
-(por ejemplo NestJS para tiempo real) está fundamentada en `ANALISIS.md` §4.
+Django 6.1 + Django REST Framework + PostgreSQL 16. La decisión de no sumar un segundo
+runtime (por ejemplo NestJS para tiempo real) está fundamentada en `ANALISIS.md` §4: el
+tiempo real requerido se cubre con polling.
+
+## Decisiones que ya están en el código
+
+Estas son las que `ANALISIS.md` marca como caras de cambiar después:
+
+| Decisión | Dónde vive |
+|---|---|
+| `AUTH_USER_MODEL` propio desde la primera migración | `apps/accounts/models.py` |
+| Manager **fail-closed**: sin tenant en contexto revienta en vez de devolver todo | `apps/core/managers.py` |
+| `unscoped` como escape explícito y único para tareas de plataforma | `apps/core/managers.py` |
+| Claves primarias UUID generadas en el origen | `apps/core/models.py` |
+| Ledger **append-only**: no se edita ni se borra, se asienta el contrario | `apps/stock/models.py` |
+| Clave de idempotencia en los movimientos de stock | `apps/stock/services.py` |
+| Unidades con magnitud y factor (recetar ml contra stock en botellas) | `apps/catalog/models.py` |
+| Combo ≠ receta: la receta descuenta insumos, el combo agrupa productos | `apps/catalog/models.py` |
 
 ## Puesta en marcha
 
+Requiere PostgreSQL. Con un servidor local:
+
+```sql
+CREATE ROLE boliche LOGIN PASSWORD 'boliche' CREATEDB;
+CREATE DATABASE boliche_sig OWNER boliche;
+```
+
+O con Docker: `docker compose up -d db`.
+
 ```bash
-docker compose up -d db
-python -m venv .venv && .venv/Scripts/activate   # Windows
+python -m venv .venv
+.venv/Scripts/activate            # Windows
 pip install -r requirements.txt
 cp .env.example .env
 python manage.py migrate
 python manage.py test
+python manage.py runserver
 ```
 
-Para el detalle operativo ver `ANALISIS.md`.
+Chequeo de salud: `GET /api/health/`.
+
+## Prueba manual del aislamiento
+
+```bash
+python manage.py test apps.tenancy.tests.test_aislamiento
+```
+
+Verifica que un boliche no puede **leer** ni **escribir** datos de otro, y que sin tenant
+en contexto el sistema falla en vez de filtrar.

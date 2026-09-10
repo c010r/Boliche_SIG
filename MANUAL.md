@@ -44,9 +44,22 @@ docker compose -f docker-compose.prod.yml up -d --build
 ```
 
 El proxy **saca el certificado TLS automáticamente**. Esto no es una formalidad:
-sin HTTPS la cámara del celular no arranca y la validación en puerta no funciona.
+sin HTTPS la cámara del celular no arranca, el service worker de la barra no se
+registra, y la validación en puerta no funciona.
 
 Verificar: `curl https://boliches.midominio.com/api/health/`
+
+### Probar el despliegue antes de usarlo
+
+```bash
+docker compose -f docker-compose.verificar.yml up -d --build
+curl http://127.0.0.1:8099/api/health/
+docker compose -f docker-compose.verificar.yml down -v
+```
+
+Construye **la misma imagen** que producción contra una base real, sin el proxy TLS
+(que necesita un dominio de verdad). Sirve para comprobar que la imagen construye,
+migra y responde **antes** de apuntar el dominio.
 
 ### Respaldos
 

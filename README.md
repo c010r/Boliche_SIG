@@ -87,6 +87,14 @@ CREATE DATABASE boliche_sig OWNER boliche;
 
 O con Docker: `docker compose up -d db`.
 
+Para verificar el despliegue completo (misma imagen que producción, contra una base real):
+
+```bash
+docker compose -f docker-compose.verificar.yml up -d --build
+curl http://127.0.0.1:8099/api/health/
+docker compose -f docker-compose.verificar.yml down -v
+```
+
 ```bash
 python -m venv .venv
 .venv/Scripts/activate            # Windows

@@ -144,19 +144,33 @@ def descontar_venta(
     idempotency_key: str = "",
     referencia_tipo: str = "venta",
     referencia_id: str = "",
+    revertir: bool = False,
 ) -> List[StockMovimiento]:
-    """Descuenta del stock lo que consume vender un producto."""
+    """Mueve el stock lo que consume vender un producto.
+
+    Con revertir=True repone en vez de descontar: es lo que usa la anulacion de
+    una venta, que asienta el contrario en lugar de borrar nada.
+
+    cantidad siempre se pasa positiva; el signo lo decide esta funcion segun el
+    modo. Recibir el signo desde afuera es como se termina reponiendo al reves.
+    """
     movimientos = []
-    for insumo_id, cant in insumos_de_producto(producto, cantidad).items():
+    for insumo_id, cant in insumos_de_producto(producto, abs(int(cantidad))).items():
         insumo = Insumo.objects.get(pk=insumo_id)
+        magnitud = abs(cant)
         movimientos.append(
             registrar_movimiento(
                 deposito=deposito,
                 insumo=insumo,
-                tipo=StockMovimiento.Tipo.VENTA,
-                cantidad=-abs(cant),
+                tipo=(
+                    StockMovimiento.Tipo.AJUSTE
+                    if revertir
+                    else StockMovimiento.Tipo.VENTA
+                ),
+                cantidad=magnitud if revertir else -magnitud,
                 usuario=usuario,
                 terminal=terminal,
+                motivo="Anulacion de venta" if revertir else "",
                 idempotency_key=(
                     f"{idempotency_key}:{insumo_id}" if idempotency_key else ""
                 ),

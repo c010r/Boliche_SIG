@@ -18,9 +18,14 @@ En construcción, siguiendo la secuencia de `ANALISIS.md` §15 bis.
 - [x] **Hito 3** — catálogo: unidades con magnitud y factor, insumos, presentaciones,
       productos, recetas con merma y combos
 - [x] **Hito 4** — depósitos por punto, **ledger de stock append-only** y saldo proyectado
-- [ ] **Hito 5** — caja y ventas con invariantes
+- [x] **Hito 5** — turnos, sesión de caja, venta con folio, pago asincrónico, anulación
+      con contra-asiento y arqueo por medio de pago
+- [ ] **Hito 6** — conteo guiado ciego y reporte de varianza por turno
+- [ ] **Hito 7** — alta de un boliche (provisioning) y datos de demostración
+- [ ] **Hito 8** — interfaz web: ingreso por PIN, barra en 3 toques, cierre y panel del dueño
+- [ ] **Hito 9** — despliegue con Docker y manual de instalación
 
-**67 tests en verde.** La puerta de la Etapa 0 (aislamiento entre dos tenants) está
+**103 tests en verde.** La puerta de la Etapa 0 (aislamiento entre dos tenants) está
 cumplida y se verifica en cada corrida.
 
 ## Stack

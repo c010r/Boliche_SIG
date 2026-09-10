@@ -90,6 +90,16 @@ class Terminal(TenantModel):
     )
     nombre = models.CharField(max_length=120)
     tipo = models.CharField(max_length=20, choices=Tipo.choices)
+    # Punto de stock desde el que descarga esta terminal. "Barra 1" descarga de
+    # "Barra 1"; es lo que permite atribuir despues una varianza a un turno.
+    deposito = models.ForeignKey(
+        "stock.Deposito",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="terminales",
+        verbose_name="Punto de stock",
+    )
     # Vinculacion de dispositivo: una terminal pertenece a un dispositivo
     # registrado y el proveedor puede revocarlo (seccion 4 bis).
     identificador = models.CharField(max_length=120, blank=True)

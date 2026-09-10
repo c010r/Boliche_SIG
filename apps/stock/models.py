@@ -152,8 +152,9 @@ class StockMovimiento(TenantModel):
         related_name="movimientos_stock",
     )
     # Clave de idempotencia: un reintento de la cola offline no puede duplicar
-    # el descuento de stock (seccion 4).
-    idempotency_key = models.CharField(max_length=80, blank=True)
+    # el descuento de stock (seccion 4). El largo contempla claves compuestas
+    # del tipo "<operacion>:<uuid venta>:<uuid insumo>".
+    idempotency_key = models.CharField(max_length=160, blank=True)
 
     objects = MovimientoManager()
     unscoped = UnscopedManager()
